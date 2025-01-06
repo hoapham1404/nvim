@@ -5,7 +5,6 @@ return {
         require("mini.ai").setup()
         require("mini.diff").setup()
         require("mini.surround").setup()
-        require("mini.animate").setup()
         require("mini.completion").setup()
 
         local hipatterns = require("mini.hipatterns")
