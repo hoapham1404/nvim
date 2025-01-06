@@ -1,12 +1,25 @@
-return { 
-	"echasnovski/mini.nvim",
-	config = function()
-		require("mini.ai").setup({ n_lines = 500 })
-		require("mini.surround").setup()
-		local statusline = require("mini.statusline")
-		statusline.setup({ use_icons = false })
-		statusline.section_location = function()
-			return "%2l:%-2v"
-		end
-	end,
+return {
+    "echasnovski/mini.nvim",
+    version = false,
+    config = function()
+        require("mini.ai").setup()
+        require("mini.diff").setup()
+        require("mini.surround").setup()
+        require("mini.animate").setup()
+        require("mini.completion").setup()
+
+        local hipatterns = require("mini.hipatterns")
+        hipatterns.setup({
+            highlighters = {
+                -- Highlight standalone 'FIXME', 'HACK', 'TODO', 'NOTE'
+                fixme = { pattern = "%f[%w]()FIXME()%f[%W]", group = "MiniHipatternsFixme" },
+                hack = { pattern = "%f[%w]()HACK()%f[%W]", group = "MiniHipatternsHack" },
+                todo = { pattern = "%f[%w]()TODO()%f[%W]", group = "MiniHipatternsTodo" },
+                note = { pattern = "%f[%w]()NOTE()%f[%W]", group = "MiniHipatternsNote" },
+
+                -- Highlight hex color strings (`#rrggbb` like `#123456`)) using that color
+                hex_color = hipatterns.gen_highlighter.hex_color(),
+            },
+        })
+    end,
 }
