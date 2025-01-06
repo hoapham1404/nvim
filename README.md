@@ -15,8 +15,7 @@ Then you are in the right place. This configuration is designed to be simple, ea
 
 ## Installation
 1. Clone this repository to your Neovim configuration directory
-```bash
-git clone https://github.com/hoapham2k2/nvim.git ~/.config/nvim
-```
-
+    ```bash
+    git clone https://github.com/hoapham2k2/nvim.git ~/.config/nvim
+    ```
 2. Then.... That's it. You are done. Enjoy your coding.
