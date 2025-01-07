@@ -24,11 +24,26 @@ return {
                 defaults = vim.tbl_extend("force", require("telescope.themes").get_ivy(), {
                     --- your own `default` options go here, e.g.:
                     path_display = {
-                        truncate = 2,
+                        truncate = 2, -- truncate all folders except the last 2
                     },
                     mappings = {},
                 }),
-                pickers = {},
+                pickers = {
+                    find_files = {
+                        hidden = true,
+                    },
+                    live_grep = {
+                        hidden = true,
+                    },
+                    buffers = {
+                        sort_lastused = true,
+                        ignore_current_buffer = true,
+                        show_all_buffers = true,
+                    },
+                    help_tags = {
+                        hidden = true,
+                    },
+                },
                 extensions = {
                     fzf = {
                         override_generic_sorter = false,

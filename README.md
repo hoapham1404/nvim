@@ -9,7 +9,7 @@ Then you are in the right place. This configuration is designed to be simple, ea
 ## Requirements
 - Neovim 0.9.0 or higher
 - Nodejs
-- Dotnet SDK (for LSP support)
+- Dotnet SDK 6.0 at least (for LSP support)
 - Ripgrep (for Telescope)
 - Fzf (for Telescope)
 

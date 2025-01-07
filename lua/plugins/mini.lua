@@ -20,5 +20,8 @@ return {
                 hex_color = hipatterns.gen_highlighter.hex_color(),
             },
         })
+
+        local comment = require("mini.comment")
+        comment.setup()
     end,
 }

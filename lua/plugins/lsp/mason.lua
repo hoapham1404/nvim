@@ -12,7 +12,6 @@ return {
             "lua_ls",
             "stylua",
             "omnisharp",
-            "omnisharp-mono",
         }
 
         require("mason-tool-installer").setup({

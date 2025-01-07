@@ -25,8 +25,11 @@ lsp_config.servers = {
             },
         },
     },
-    omnisharp = {},
-    omnisharp_mono = {},
+    omnisharp = {
+        cmd = { "omnisharp", "--languageserver" },
+        filetypes = { "csharp" },
+        root_dir = require("lspconfig.util").root_pattern("*.sln", "*.csproj"),
+    },
 }
 
 -- Function to get server configuration
