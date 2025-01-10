@@ -40,34 +40,11 @@ return {
                 ["<C-f>"] = cmp.mapping.scroll_docs(4),
 
                 ["<C-y>"] = cmp.mapping.confirm({ select = true }),
-
-                -- Think of <c-l> as moving to the right of your snippet expansion.
-                --  So if you have a snippet that's like:
-                --  function $name($args)
-                --    $body
-                --  end
-                --
-                -- <c-l> will move you to the right of each of the expansion locations.
-                -- <c-h> is similar, except moving you backwards.
-                ["<C-l>"] = cmp.mapping(function()
-                    if luasnip.expand_or_locally_jumpable() then
-                        luasnip.expand_or_jump()
-                    end
-                end, { "i", "s" }),
-                ["<C-h>"] = cmp.mapping(function()
-                    if luasnip.locally_jumpable(-1) then
-                        luasnip.jump(-1)
-                    end
-                end, { "i", "s" }),
-
-                -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
-                --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
             }),
             sources = {
                 {
                     name = "lazydev",
-                    -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
-                    group_index = 0,
+                    group_index = 0, -- This source will be the first one to be checked for completion
                 },
                 { name = "nvim_lsp" },
                 { name = "luasnip" },
