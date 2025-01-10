@@ -4,23 +4,13 @@ return {
         tag = "0.1.8",
         dependencies = {
             "nvim-lua/plenary.nvim",
-            { -- If encountering errors, see telescope-fzf-native README for installation instructions
-                "nvim-telescope/telescope-fzf-native.nvim",
-
-                -- `build` is used to run some command when the plugin is installed/updated.
-                -- This is only run then, not every time Neovim starts up.
-                build = "make",
-
-                -- `cond` is a condition used to determine whether this plugin should be
-                -- installed and loaded.
-                cond = function()
-                    return vim.fn.executable("make") == 1
-                end,
-            },
+            "nvim-telescope/telescope-fzf-native.nvim",
+            "BurntSushi/ripgrep",
         },
         config = function()
+            local telescope = require("telescope")
             -- Setup
-            require("telescope").setup({
+            telescope.setup({
                 defaults = vim.tbl_extend("force", require("telescope.themes").get_ivy(), {
                     --- your own `default` options go here, e.g.:
                     path_display = {
@@ -32,9 +22,7 @@ return {
                     find_files = {
                         hidden = true,
                     },
-                    live_grep = {
-                        hidden = true,
-                    },
+                    live_grep = {},
                     buffers = {
                         sort_lastused = true,
                         ignore_current_buffer = true,
@@ -46,15 +34,14 @@ return {
                 },
                 extensions = {
                     fzf = {
-                        override_generic_sorter = false,
+                        override_generic_sorter = false, -- override the generic sorter
                         override_file_sorter = true,
                         case_mode = "smart_case",
                     },
                 },
             })
 
-            require("telescope").load_extension("fzf")
-
+            telescope.load_extension("fzf")
             -- Keymaps
             vim.keymap.set("n", "<leader>ff", function()
                 require("telescope.builtin").find_files()
@@ -64,7 +51,11 @@ return {
             })
 
             vim.keymap.set("n", "<leader>fg", function()
-                require("telescope.builtin").live_grep()
+                require("telescope.builtin").live_grep({
+                    additional_args = function()
+                        return { "--hidden", "--no-ignore-vcs" }
+                    end,
+                })
             end, {
                 desc = "Find [G]rep",
                 silent = true,
