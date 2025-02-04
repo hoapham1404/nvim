@@ -2,21 +2,11 @@
 --
 return {
     {
-        "craftzdog/solarized-osaka.nvim",
-        lazy = false,
+        "wtfox/jellybeans.nvim",
         priority = 1000,
-        opts = {},
         config = function()
-            --vim.cmd("colorscheme solarized-osaka")
-        end,
-    },
-    {
-        "rebelot/kanagawa.nvim",
-        lazy = false,
-        priority = 1000,
-        opts = {},
-        config = function()
-            vim.cmd("colorscheme kanagawa")
+            require("jellybeans").setup()
+            vim.cmd.colorscheme("jellybeans")
         end,
     },
 }
