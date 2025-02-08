@@ -49,7 +49,6 @@ vim.opt.inccommand = "split"
 
 -- Show which line your cursor is on
 vim.opt.cursorline = true
--- Color column at 150 characters
-vim.opt.colorcolumn = "150"
+vim.opt.colorcolumn = "80"
 
 vim.opt.scrolloff = 10
