@@ -21,12 +21,8 @@ return {
                 pickers = {
                     find_files = {
                         hidden = true,
-                    },
-                    live_grep = {},
-                    buffers = {
-                        sort_lastused = true,
-                        ignore_current_buffer = true,
-                        show_all_buffers = true,
+                        theme = "dropdown",
+                        previewer = true,
                     },
                     help_tags = {
                         hidden = true,
