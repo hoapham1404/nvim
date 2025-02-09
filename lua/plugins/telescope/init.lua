@@ -22,7 +22,7 @@ return {
                     find_files = {
                         hidden = true,
                         theme = "dropdown",
-                        previewer = true,
+                        previewer = false,
                     },
                     help_tags = {
                         hidden = true,

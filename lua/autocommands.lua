@@ -11,7 +11,7 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 vim.api.nvim_create_autocmd("FileType", {
     desc = "Auto split windows when open certain filetypes",
     group = vim.api.nvim_create_augroup("app-utilities", { clear = true }),
-    pattern = { "help", "man", "terminal" },
+    pattern = { "man", "terminal" },
     callback = function()
         vim.cmd("wincmd L")
     end,
