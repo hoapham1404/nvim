@@ -1,9 +1,8 @@
 return {
-    'neovim/nvim-lspconfig',
+    "neovim/nvim-lspconfig",
     -- Setting up LSP servers
-    dependencies =  {
-        require('plugins.lsp.servers'),
-        --for omnisharp support
+    dependencies = {
+        require("plugins.lsp.servers"),
         "Hoffs/omnisharp-extended-lsp.nvim",
     },
 
@@ -13,23 +12,31 @@ return {
 
         -- This is where you enable features that only work
         -- if there is a language server active in the file
-        vim.api.nvim_create_autocmd('LspAttach', {
-            desc = 'LSP actions',
+        vim.api.nvim_create_autocmd("LspAttach", {
+            desc = "LSP actions",
             callback = function(event)
-                local opts = {buffer = event.buf}
+                local opts = { buffer = event.buf }
+                local client = vim.lsp.get_client_by_id(event.data.client_id)
+                local filetype = vim.bo[event.buf].filetype
 
-                vim.keymap.set('n', 'K', '<cmd>lua vim.lsp.buf.hover()<cr>', opts)
-                vim.keymap.set('n', 'gd', '<cmd>lua require("omnisharp_extended").lsp_definition()<cr>', opts)
-                vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<cr>', opts)
-                vim.keymap.set('n', 'gi', '<cmd>lua require("omnisharp_extended").lsp_implementation()<cr>', opts)
-                vim.keymap.set('n', 'go', '<cmd>lua require("omnisharp_extended").lsp_type_definition()<cr>', opts)
-                vim.keymap.set('n', 'gr', '<cmd>lua require("omnisharp_extended").lsp_references()<cr>', opts)
-                vim.keymap.set('n', 'gs', '<cmd>lua vim.lsp.buf.signature_help()<cr>', opts)
-                vim.keymap.set('n', '<F2>', '<cmd>lua vim.lsp.buf.rename()<cr>', opts)
-                vim.keymap.set({'n', 'x'}, '<F3>', '<cmd>lua vim.lsp.buf.format({async = true})<cr>', opts)
-                vim.keymap.set('n', '<F4>', '<cmd>lua vim.lsp.buf.code_action()<cr>', opts)
+                -- Apply general LSP keybindings only if not in C# files
+                if filetype ~= "cs" then
+                    vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+                    vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+                    vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
+                    vim.keymap.set("n", "go", vim.lsp.buf.type_definition, opts)
+                end
+
+                -- Common LSP bindings (shared across all languages)
+                vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+                vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
+                vim.keymap.set("n", "gs", vim.lsp.buf.signature_help, opts)
+                vim.keymap.set("n", "<F2>", vim.lsp.buf.rename, opts)
+                vim.keymap.set({ "n", "x" }, "<F3>", function()
+                    vim.lsp.buf.format({ async = true })
+                end, opts)
+                vim.keymap.set("n", "<F4>", vim.lsp.buf.code_action, opts)
             end,
         })
-
     end,
 }
