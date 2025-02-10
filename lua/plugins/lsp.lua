@@ -1,22 +1,32 @@
 return {
     "neovim/nvim-lspconfig",
-    -- Setting up LSP servers
     dependencies = {
-        require("plugins.lsp.servers"),
+        --mason
+        "williamboman/mason-lspconfig.nvim",
+        "williamboman/mason.nvim",
         "Hoffs/omnisharp-extended-lsp.nvim",
+
+        --auto completion
+        "hrsh7th/cmp-nvim-lsp",
+        "hrsh7th/nvim-cmp",
     },
 
     config = function()
-        --preload before setting up lspconfig
-        require("plugins.lsp.preload")
+        --preload
+        vim.opt.signcolumn = 'yes'
 
-        -- This is where you enable features that only work
-        -- if there is a language server active in the file
+        local lspconfig_defaults = require('lspconfig').util.default_config
+        lspconfig_defaults.capabilities = vim.tbl_deep_extend(
+            'force',
+            lspconfig_defaults.capabilities,
+            require('cmp_nvim_lsp').default_capabilities()
+        )
+
+        -- LSP keybindings and general settings
         vim.api.nvim_create_autocmd("LspAttach", {
             desc = "LSP actions",
             callback = function(event)
                 local opts = { buffer = event.buf }
-                local client = vim.lsp.get_client_by_id(event.data.client_id)
                 local filetype = vim.bo[event.buf].filetype
 
                 -- Apply general LSP keybindings only if not in C# files
@@ -37,6 +47,30 @@ return {
                 end, opts)
                 vim.keymap.set("n", "<F4>", vim.lsp.buf.code_action, opts)
             end,
+        })
+
+
+        -- LSP Servers configurations with MASON
+        require('mason').setup({})
+        require('mason-lspconfig').setup({
+            ensure_installed = { 'lua_ls', 'omnisharp', 'omnisharp_mono' },
+            handlers = {
+                function(server_name)
+                    require('lspconfig')[server_name].setup({})
+                end,
+
+                lua_ls = function()
+                    require('lspconfig').lua_ls.setup({
+                        settings = {
+                            Lua = {
+                                diagnostics = {
+                                    globals = { 'vim' },
+                                },
+                            },
+                        },
+                    })
+                end
+            },
         })
     end,
 }

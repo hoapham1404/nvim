@@ -24,7 +24,6 @@ vim.opt.undofile = true
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 
-vim.opt.signcolumn = "yes" -- signcolum is used to show signs like git gutter, lsp diagnostics, etc.
 
 -- Decrease update time
 vim.opt.updatetime = 250
