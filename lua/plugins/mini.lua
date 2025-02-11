@@ -16,51 +16,30 @@ return {
                 todo = { pattern = "%f[%w]()TODO()%f[%W]", group = "MiniHipatternsTodo" },
                 note = { pattern = "%f[%w]()NOTE()%f[%W]", group = "MiniHipatternsNote" },
 
-                -- Highlight hex color strings (`#rrggbb` like `#123456`)) using that color
-                hex_color = hipatterns.gen_highlighter.hex_color(),
+                hex_color = hipatterns.gen_highlighter.hex_color(), -- Highlight hex color strings (`#rrggbb` like `#123456`)) using that color
             },
         })
 
         local comment = require("mini.comment")
-        comment.setup( -- No need to copy this inside `setup()`. Will be used automatically.
+        comment.setup(
             {
-                -- Options which control module behavior
                 options = {
-                    -- Function to compute custom 'commentstring' (optional)
-                    custom_commentstring = nil,
-
-                    -- Whether to ignore blank lines when commenting
-                    ignore_blank_line = false,
-
-                    -- Whether to recognize as comment only lines without indent
-                    start_of_line = false,
-
-                    -- Whether to force single space inner padding for comment parts
-                    pad_comment_parts = true,
+                    custom_commentstring = nil, -- Function to compute custom 'commentstring' (optional)
+                    ignore_blank_line = false,  -- Whether to ignore blank lines when commenting
+                    start_of_line = false,      -- Whether to recognize as comment only lines without indent
+                    pad_comment_parts = true,   -- Whether to force single space inner padding for comment parts
                 },
 
-                -- Module mappings. Use `''` (empty string) to disable one.
                 mappings = {
-                    -- Toggle comment (like `gcip` - comment inner paragraph) for both
-                    -- Normal and Visual modes
-                    comment = "gc",
-
-                    -- Toggle comment on current line
-                    comment_line = "gcc",
-
-                    -- Toggle comment on visual selection
-                    comment_visual = "gc",
-
-                    -- Define 'comment' textobject (like `dgc` - delete whole comment block)
-                    -- Works also in Visual mode if mapping differs from `comment_visual`
-                    textobject = "gc",
+                    comment = "gc",        -- Toggle comment (like `gcip` - comment inner paragraph) for both Normal and Visual modes
+                    comment_line = "gcc",  -- Toggle comment on current line
+                    comment_visual = "gc", -- Toggle comment on visual selection
+                    textobject = "gc",     -- Works also in Visual mode if mapping differs from `comment_visual`. Define 'comment' textobject (like `dgc` - delete whole comment block)
                 },
 
                 -- Hook functions to be executed at certain stage of commenting
                 hooks = {
-                    -- Before successful commenting. Does nothing by default.
                     pre = function() end,
-                    -- After successful commenting. Does nothing by default.
                     post = function() end,
                 },
             }
