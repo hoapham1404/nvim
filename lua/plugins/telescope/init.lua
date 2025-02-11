@@ -29,15 +29,15 @@ return {
                     },
                 },
                 extensions = {
-                    fzf = {
-                        override_generic_sorter = false, -- override the generic sorter
-                        override_file_sorter = true,
-                        case_mode = "smart_case",
-                    },
+                    -- fzf = {
+                    --     override_generic_sorter = false, -- override the generic sorter
+                    --     override_file_sorter = true,
+                    --     case_mode = "smart_case",
+                    -- },
                 },
             })
 
-            telescope.load_extension("fzf")
+            -- telescope.load_extension("fzf")
             -- Keymaps
             vim.keymap.set("n", "<leader>ff", function()
                 require("telescope.builtin").find_files()
