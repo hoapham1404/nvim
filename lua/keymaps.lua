@@ -1,10 +1,9 @@
 local keymap = vim.keymap
-local opts = { noremap = true, silent = true }
 
--- [[ Basic Keymaps ]]
 keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
--- Diagnostic keymaps
+
 keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostic [Q]uickfix list" })
+keymap.set("n", "<leader>e", vim.diagnostic.open_float, { desc = "Show diagnostic in [E]rror window" })
 
 keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 

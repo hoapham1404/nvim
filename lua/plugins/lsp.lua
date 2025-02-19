@@ -59,6 +59,7 @@ return {
                     require('lspconfig')[server_name].setup({})
                 end,
 
+                -- Handle special configurations for some servers
                 lua_ls = function()
                     require('lspconfig').lua_ls.setup({
                         settings = {
@@ -69,7 +70,22 @@ return {
                             },
                         },
                     })
-                end
+                end,
+
+                omnisharp = function()
+                    require('lspconfig').omnisharp.setup({
+                        cmd = { "omnisharp" },
+                        enable_import_completion = true,
+                        organize_imports_on_format = true,
+                        root_dir = require("lspconfig.util").root_pattern("*.sln", "*.csproj"),
+                        handlers = {
+                            ["textDocument/definition"] = require("omnisharp_extended").handler,
+                        },
+                        on_attach = function(client, _)
+                            client.server_capabilities.documentFormattingProvider = false
+                        end,
+                    })
+                end,
             },
         })
     end,
