@@ -93,10 +93,10 @@ return {
                     })
                 end, opts)
                 vim.keymap.set("n", "<F4>", vim.lsp.buf.code_action, opts)
-                
+
                 -- Add floating diagnostic window
                 vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, opts)
-                
+
                 -- Add workspace symbol search
                 vim.keymap.set("n", "<leader>ws", vim.lsp.buf.workspace_symbol, opts)
 
@@ -110,7 +110,7 @@ return {
                             if vim.tbl_contains(skip_filetypes, filetype) then
                                 return
                             end
-                            
+
                             vim.lsp.buf.format({
                                 async = false,
                                 timeout_ms = 5000
@@ -124,7 +124,7 @@ return {
         -- LSP Servers configurations with MASON
         require('mason').setup({})
         require('mason-lspconfig').setup({
-            ensure_installed = { 'lua_ls', 'omnisharp', 'omnisharp_mono', 'gopls', 'angularls', 'tsserver', 'html', 'cssls' },
+            ensure_installed = { 'lua_ls', 'omnisharp', 'omnisharp_mono', 'gopls', 'angularls', 'html', 'cssls' },
             handlers = {
                 function(server_name)
                     require('lspconfig')[server_name].setup({
@@ -160,13 +160,14 @@ return {
                             client.server_capabilities.documentFormattingProvider = false
                             -- Add C#-specific keybindings here if needed
                             local opts = { buffer = bufnr }
-                            vim.keymap.set("n", "gd", function() require("omnisharp_extended").telescope_definition() end, opts)
+                            vim.keymap.set("n", "gd", function() require("omnisharp_extended").telescope_definition() end,
+                                opts)
                             vim.keymap.set("n", "gr", function() vim.lsp.buf.references() end, opts)
                             vim.keymap.set("n", "gi", function() vim.lsp.buf.implementation() end, opts)
                         end,
                     })
                 end,
-                
+
                 omnisharp_mono = function()
                     -- Add configuration if you're using omnisharp_mono
                     require('lspconfig').omnisharp_mono.setup({
@@ -179,7 +180,7 @@ return {
                         },
                     })
                 end,
-                
+
                 gopls = function()
                     require('lspconfig').gopls.setup({
                         capabilities = capabilities,
@@ -202,7 +203,7 @@ return {
                         end,
                     })
                 end,
-                
+
                 angularls = function()
                     require('lspconfig').angularls.setup({
                         capabilities = capabilities,
@@ -222,42 +223,9 @@ return {
                         end,
                     })
                 end,
-
-                tsserver = function()
-                    require('lspconfig').tsserver.setup({
-                        capabilities = capabilities,
-                        settings = {
-                            typescript = {
-                                inlayHints = {
-                                    includeInlayParameterNameHints = 'all',
-                                    includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-                                    includeInlayFunctionParameterTypeHints = true,
-                                    includeInlayVariableTypeHints = true,
-                                    includeInlayPropertyDeclarationTypeHints = true,
-                                    includeInlayFunctionLikeReturnTypeHints = true,
-                                    includeInlayEnumMemberValueHints = true,
-                                },
-                            },
-                            javascript = {
-                                inlayHints = {
-                                    includeInlayParameterNameHints = 'all',
-                                    includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-                                    includeInlayFunctionParameterTypeHints = true,
-                                    includeInlayVariableTypeHints = true,
-                                    includeInlayPropertyDeclarationTypeHints = true,
-                                    includeInlayFunctionLikeReturnTypeHints = true,
-                                    includeInlayEnumMemberValueHints = true,
-                                },
-                            },
-                        },
-                        on_attach = function(_, bufnr)
-                            setup_organize_imports(bufnr)
-                        end,
-                    })
-                end,
             },
         })
-        
+
         -- Add an LSP status indicator
         vim.api.nvim_create_autocmd("LspAttach", {
             callback = function(args)
@@ -277,7 +245,7 @@ return {
                 end
 
                 update_lsp_status()
-                
+
                 -- You can use this global variable in your statusline configuration
                 -- For example: require('lualine').setup({ ... sections = { lualine_x = { function() return vim.g.lsp_status end } } })
             end,
