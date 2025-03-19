@@ -9,8 +9,6 @@ return {
         --auto completion
         "hrsh7th/cmp-nvim-lsp",
         "hrsh7th/nvim-cmp",
-        "hrsh7th/cmp-buffer",
-        "hrsh7th/cmp-path",
     },
 
     config = function()
@@ -27,11 +25,6 @@ return {
             underline = true,
             update_in_insert = false,
             severity_sort = true,
-            float = {
-                border = "rounded",
-                source = "always",
-            },
-            update_debounce = 200,
         })
 
         -- Set up shared capabilities for all servers
@@ -100,10 +93,10 @@ return {
                     })
                 end, opts)
                 vim.keymap.set("n", "<F4>", vim.lsp.buf.code_action, opts)
-
+                
                 -- Add floating diagnostic window
                 vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, opts)
-
+                
                 -- Add workspace symbol search
                 vim.keymap.set("n", "<leader>ws", vim.lsp.buf.workspace_symbol, opts)
 
@@ -117,14 +110,11 @@ return {
                             if vim.tbl_contains(skip_filetypes, filetype) then
                                 return
                             end
-
-                            local ok, err = pcall(vim.lsp.buf.format, {
+                            
+                            vim.lsp.buf.format({
                                 async = false,
                                 timeout_ms = 5000
                             })
-                            if not ok then
-                                vim.notify("Format failed: " .. tostring(err), vim.log.levels.WARN)
-                            end
                         end,
                     })
                 end
@@ -133,22 +123,6 @@ return {
 
         -- LSP Servers configurations with MASON
         require('mason').setup({})
-        -- Set up nvim-cmp
-        local cmp = require('cmp')
-        cmp.setup({
-            mapping = cmp.mapping.preset.insert({
-                ['<C-b>'] = cmp.mapping.scroll_docs(-4),
-                ['<C-f>'] = cmp.mapping.scroll_docs(4),
-                ['<C-Space>'] = cmp.mapping.complete(),
-                ['<C-e>'] = cmp.mapping.abort(),
-                ['<CR>'] = cmp.mapping.confirm({ select = true }),
-            }),
-            sources = cmp.config.sources({
-                { name = 'nvim_lsp' },
-                { name = 'buffer' },
-                { name = 'path' },
-            }),
-        })
         require('mason-lspconfig').setup({
             ensure_installed = { 'lua_ls', 'omnisharp', 'omnisharp_mono', 'gopls', 'angularls', 'tsserver', 'html', 'cssls' },
             handlers = {
@@ -186,14 +160,13 @@ return {
                             client.server_capabilities.documentFormattingProvider = false
                             -- Add C#-specific keybindings here if needed
                             local opts = { buffer = bufnr }
-                            vim.keymap.set("n", "gd", function() require("omnisharp_extended").telescope_definition() end,
-                                opts)
+                            vim.keymap.set("n", "gd", function() require("omnisharp_extended").telescope_definition() end, opts)
                             vim.keymap.set("n", "gr", function() vim.lsp.buf.references() end, opts)
                             vim.keymap.set("n", "gi", function() vim.lsp.buf.implementation() end, opts)
                         end,
                     })
                 end,
-
+                
                 omnisharp_mono = function()
                     -- Add configuration if you're using omnisharp_mono
                     require('lspconfig').omnisharp_mono.setup({
@@ -206,7 +179,7 @@ return {
                         },
                     })
                 end,
-
+                
                 gopls = function()
                     require('lspconfig').gopls.setup({
                         capabilities = capabilities,
@@ -229,7 +202,7 @@ return {
                         end,
                     })
                 end,
-
+                
                 angularls = function()
                     require('lspconfig').angularls.setup({
                         capabilities = capabilities,
@@ -284,7 +257,7 @@ return {
                 end,
             },
         })
-
+        
         -- Add an LSP status indicator
         vim.api.nvim_create_autocmd("LspAttach", {
             callback = function(args)
@@ -304,7 +277,7 @@ return {
                 end
 
                 update_lsp_status()
-
+                
                 -- You can use this global variable in your statusline configuration
                 -- For example: require('lualine').setup({ ... sections = { lualine_x = { function() return vim.g.lsp_status end } } })
             end,
@@ -316,18 +289,5 @@ return {
                 vim.g.lsp_status = ""
             end,
         })
-        -- Add LSP progress handler
-        vim.lsp.handlers["$/progress"] = function(_, result, ctx)
-            local client_id = ctx.client_id
-            local client = vim.lsp.get_client_by_id(client_id)
-            local client_name = client and client.name or "unknown"
-            
-            if result.value.kind == "end" then
-                vim.notify(
-                    string.format("[%s] %s", client_name, result.value.message or "Task completed"),
-                    vim.log.levels.INFO
-                )
-            end
-        end
     end,
 }
