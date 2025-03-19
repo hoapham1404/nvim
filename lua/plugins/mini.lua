@@ -2,11 +2,11 @@ return {
     "echasnovski/mini.nvim",
     version = false,
     config = function()
-        require("mini.ai").setup()
         require("mini.diff").setup()
         require("mini.surround").setup()
         require("mini.completion").setup()
 
+        ------------------------------ Highlighting ------------------------------
         local hipatterns = require("mini.hipatterns")
         hipatterns.setup({
             highlighters = {
@@ -20,6 +20,7 @@ return {
             },
         })
 
+        ------------------------------ Commenting ------------------------------
         local comment = require("mini.comment")
         comment.setup(
             {
@@ -44,5 +45,9 @@ return {
                 },
             }
         )
+
+        ------------------------------ Text objects (ai) ------------------------------
+        local ai = require("mini.ai")
+        ai.setup()
     end,
 }
