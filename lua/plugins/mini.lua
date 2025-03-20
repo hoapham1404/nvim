@@ -3,7 +3,12 @@ return {
     version = false,
     config = function()
         require("mini.diff").setup()
-        require("mini.surround").setup()
+        require('mini.surround').setup({
+            custom_surroundings = {
+                -- The `[%p%w]` is the "punctuaion+alphanumeric` part
+                t = { input = { '<([%p%w]-)%f[^<%w][^<>]->.-</%1>', '^<.->().*()</[^/]->$' } },
+            },
+        })
         require("mini.completion").setup()
 
         ------------------------------ Highlighting ------------------------------
@@ -47,7 +52,11 @@ return {
         )
 
         ------------------------------ Text objects (ai) ------------------------------
-        local ai = require("mini.ai")
-        ai.setup()
+        -- local ai = require("mini.ai")
+        -- ai.setup({
+        --     custom_textobjects = {
+        --         t = false,
+        --     },
+        -- })
     end,
 }
