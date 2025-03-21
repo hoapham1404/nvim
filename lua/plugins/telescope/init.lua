@@ -12,7 +12,6 @@ return {
             -- Setup
             telescope.setup({
                 defaults = vim.tbl_extend("force", require("telescope.themes").get_ivy(), {
-                    --- your own `default` options go here, e.g.:
                     path_display = {
                         truncate = 2, -- truncate all folders except the last 2
                     },
@@ -29,15 +28,10 @@ return {
                     },
                 },
                 extensions = {
-                    fzf = {
-                        override_generic_sorter = false, -- override the generic sorter
-                        override_file_sorter = true,
-                        case_mode = "smart_case",
-                    },
                 },
             })
 
-            telescope.load_extension("fzf")
+            -- telescope.load_extension("fzf")
             -- Keymaps
             vim.keymap.set("n", "<leader>ff", function()
                 require("telescope.builtin").find_files()
