@@ -1,4 +1,5 @@
-return { -- Highlight, edit, and navigate code
+return {
+    -- Highlight, edit, and navigate code
     "nvim-treesitter/nvim-treesitter",
     dependencies = {
         "nvim-treesitter/nvim-treesitter-textobjects",
@@ -17,6 +18,9 @@ return { -- Highlight, edit, and navigate code
                 "luadoc",
                 "markdown",
                 "markdown_inline",
+                "javascript",
+                "typescript",
+                "tsx"
             },
             auto_install = true,
             highlight = {

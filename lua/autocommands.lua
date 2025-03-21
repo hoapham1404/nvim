@@ -31,3 +31,13 @@ vim.api.nvim_create_autocmd("BufReadPost", {
         end
     end,
 })
+
+-- Auto command for setting filetype for jsx and tsx files
+vim.api.nvim_create_autocmd({ "BufEnter", "BufNewFile" }, {
+    pattern = { "*.jsx" },
+    command = "set filetype=javascriptreact",
+})
+vim.api.nvim_create_autocmd({ "BufEnter", "BufNewFile" }, {
+    pattern = { "*.tsx" },
+    command = "set filetype=typescriptreact",
+})
