@@ -3,6 +3,7 @@ return {
     version = false,
     config = function()
         require("mini.diff").setup()
+        require("mini.pairs").setup()
         require('mini.surround').setup({
             custom_surroundings = {
                 T = {
