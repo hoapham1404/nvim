@@ -50,4 +50,5 @@ vim.opt.colorcolumn = "100"
 
 vim.opt.scrolloff = 10
 -- transparent background
+
 vim.cmd("highlight Normal guibg=NONE ctermbg=NONE")

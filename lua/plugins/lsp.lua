@@ -13,7 +13,7 @@ return {
 
     config = function()
         --preload
-        vim.opt.signcolumn = 'yes'
+        vim.opt.signcolumn = "yes"
 
         -- Format on save toggle (set to false if you don't want automatic formatting)
         local format_on_save = true
@@ -28,11 +28,11 @@ return {
         })
 
         -- Set up shared capabilities for all servers
-        local lspconfig_defaults = require('lspconfig').util.default_config
+        local lspconfig_defaults = require("lspconfig").util.default_config
         local capabilities = vim.tbl_deep_extend(
-            'force',
+            "force",
             lspconfig_defaults.capabilities,
-            require('cmp_nvim_lsp').default_capabilities()
+            require("cmp_nvim_lsp").default_capabilities()
         )
         lspconfig_defaults.capabilities = capabilities
 
@@ -45,7 +45,9 @@ return {
                     params.context = { only = { "source.organizeImports" } }
                     -- Add pcall for error handling
                     local result = vim.lsp.buf_request_sync(bufnr, "textDocument/codeAction", params, 3000)
-                    if not result then return end
+                    if not result then
+                        return
+                    end
 
                     for _, res in pairs(result) do
                         for _, r in pairs(res.result or {}) do
@@ -89,7 +91,7 @@ return {
                 vim.keymap.set({ "n", "x" }, "<F3>", function()
                     vim.lsp.buf.format({
                         async = true,
-                        timeout_ms = 5000 -- 5 second timeout
+                        timeout_ms = 5000, -- 5 second timeout
                     })
                 end, opts)
                 vim.keymap.set("n", "<F4>", vim.lsp.buf.code_action, opts)
@@ -113,7 +115,7 @@ return {
 
                             vim.lsp.buf.format({
                                 async = false,
-                                timeout_ms = 5000
+                                timeout_ms = 5000,
                             })
                         end,
                     })
@@ -122,29 +124,29 @@ return {
         })
 
         -- LSP Servers configurations with MASON
-        require('mason').setup({})
-        require('mason-lspconfig').setup({
-            ensure_installed = { 'lua_ls', 'omnisharp', 'omnisharp_mono', 'gopls', 'angularls', 'html', 'cssls' },
+        require("mason").setup({})
+        require("mason-lspconfig").setup({
+            ensure_installed = { "lua_ls", "omnisharp", "omnisharp_mono", "gopls", "angularls", "html", "cssls" },
             handlers = {
                 function(server_name)
-                    require('lspconfig')[server_name].setup({
+                    require("lspconfig")[server_name].setup({
                         capabilities = capabilities,
                     })
                 end,
 
                 -- Handle special configurations for some servers
                 lua_ls = function()
-                    require('lspconfig').lua_ls.setup({
+                    require("lspconfig").lua_ls.setup({
                         capabilities = capabilities,
                         settings = {
                             Lua = {
                                 runtime = {
                                     -- Tell the language server which version of Lua you're using
-                                    version = 'LuaJIT',
+                                    version = "LuaJIT",
                                 },
                                 diagnostics = {
                                     -- Get the language server to recognize the `vim` global
-                                    globals = { 'vim' },
+                                    globals = { "vim" },
                                 },
                                 workspace = {
                                     -- Make the server aware of Neovim runtime files
@@ -163,7 +165,7 @@ return {
                     })
                 end,
                 omnisharp = function()
-                    require('lspconfig').omnisharp.setup({
+                    require("lspconfig").omnisharp.setup({
                         cmd = { "omnisharp" },
                         capabilities = capabilities,
                         enable_import_completion = true,
@@ -176,17 +178,22 @@ return {
                             client.server_capabilities.documentFormattingProvider = false
                             -- Add C#-specific keybindings here if needed
                             local opts = { buffer = bufnr }
-                            vim.keymap.set("n", "gd", function() require("omnisharp_extended").telescope_definition() end,
-                                opts)
-                            vim.keymap.set("n", "gr", function() vim.lsp.buf.references() end, opts)
-                            vim.keymap.set("n", "gi", function() vim.lsp.buf.implementation() end, opts)
+                            vim.keymap.set("n", "gd", function()
+                                require("omnisharp_extended").telescope_definition()
+                            end, opts)
+                            vim.keymap.set("n", "gr", function()
+                                vim.lsp.buf.references()
+                            end, opts)
+                            vim.keymap.set("n", "gi", function()
+                                vim.lsp.buf.implementation()
+                            end, opts)
                         end,
                     })
                 end,
 
                 omnisharp_mono = function()
                     -- Add configuration if you're using omnisharp_mono
-                    require('lspconfig').omnisharp_mono.setup({
+                    require("lspconfig").omnisharp_mono.setup({
                         capabilities = capabilities,
                         enable_import_completion = true,
                         organize_imports_on_format = true,
@@ -198,7 +205,7 @@ return {
                 end,
 
                 gopls = function()
-                    require('lspconfig').gopls.setup({
+                    require("lspconfig").gopls.setup({
                         capabilities = capabilities,
                         settings = {
                             gopls = {
@@ -221,22 +228,39 @@ return {
                 end,
 
                 angularls = function()
-                    require('lspconfig').angularls.setup({
+                    require("lspconfig").angularls.setup({
                         capabilities = capabilities,
-                        root_dir = require('lspconfig.util').root_pattern('angular.json', 'project.json'),
+                        root_dir = require("lspconfig.util").root_pattern("angular.json", "project.json"),
                         settings = {
                             angular = {
                                 analyzeAngularDecorators = true,
                                 analyzeTemplates = true,
                                 enableExperimentalIvy = true,
                                 trace = {
-                                    server = "messages"
+                                    server = "messages",
                                 },
                             },
                         },
                         on_attach = function(_, bufnr)
                             setup_organize_imports(bufnr)
                         end,
+                    })
+                end,
+
+                cssls = function()
+                    require("lspconfig").cssls.setup({
+                        filetypes = { "css", "scss", "less" }, -- Keep default, but exclude Tailwind files if needed
+                        settings = {
+                            css = {
+                                validate = false, -- Disable validation to avoid errors from css-lsp
+                            },
+                            scss = {
+                                validate = false,
+                            },
+                            less = {
+                                validate = false,
+                            },
+                        },
                     })
                 end,
             },
