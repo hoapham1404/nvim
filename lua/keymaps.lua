@@ -44,3 +44,6 @@ keymap.set("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
 keymap.set("n", "<C-Down>", ":resize -2<CR>", { desc = "Decrease window height" })
 keymap.set("n", "<C-Left>", ":vertical resize +2<CR>", { desc = "Increase window width" })
 keymap.set("n", "<C-Right>", ":vertical resize -2<CR>", { desc = "Decrease window width" })
+
+keymap.set("n", "<CR>", '@="m`o<C-V><Esc>``"<CR>', { desc = "Add blank line in normal mode" })
+keymap.set("n", "<leader><CR>", '@="m`O<C-V><Esc>``"<CR>', { desc = "Add upper blank line in normal mode" })
