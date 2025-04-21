@@ -31,7 +31,6 @@ return {
                 },
             })
 
-            -- telescope.load_extension("fzf")
             -- Keymaps
             vim.keymap.set("n", "<leader>ff", function()
                 require("telescope.builtin").find_files()

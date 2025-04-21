@@ -41,3 +41,14 @@ vim.api.nvim_create_autocmd({ "BufEnter", "BufNewFile" }, {
     pattern = { "*.tsx" },
     command = "set filetype=typescriptreact",
 })
+
+vim.api.nvim_create_user_command('LspStatus', function()
+    local clients = vim.lsp.get_active_clients({ bufnr = vim.api.nvim_get_current_buf() })
+    if #clients == 0 then
+        print("No LSP attached.")
+    else
+        for _, client in ipairs(clients) do
+            print("Attached LSP: " .. client.name)
+        end
+    end
+end, {})
