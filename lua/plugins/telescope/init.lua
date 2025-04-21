@@ -4,8 +4,10 @@ return {
         tag = "0.1.8",
         dependencies = {
             "nvim-lua/plenary.nvim",
-            "nvim-telescope/telescope-fzf-native.nvim",
             "BurntSushi/ripgrep",
+
+            "nvim-telescope/telescope-fzf-native.nvim",
+            "Decodetalkers/csharpls-extended-lsp.nvim",
         },
         config = function()
             local telescope = require("telescope")
@@ -31,37 +33,40 @@ return {
                 },
             })
 
+            --load extensions
+            telescope.load_extension("csharpls_definition")
+
             -- Keymaps
             vim.keymap.set("n", "<leader>ff", function()
                 require("telescope.builtin").find_files()
             end, {
-                desc = "Find [F]iles",
-                silent = true,
-            })
+            desc = "Find [F]iles",
+            silent = true,
+        })
 
-            vim.keymap.set("n", "<leader>fg", function()
-                require("telescope.builtin").live_grep({
-                    additional_args = function()
-                        return { "--hidden", "--no-ignore-vcs" }
-                    end,
-                })
-            end, {
-                desc = "Find [G]rep",
-                silent = true,
+        vim.keymap.set("n", "<leader>fg", function()
+            require("telescope.builtin").live_grep({
+                additional_args = function()
+                    return { "--hidden", "--no-ignore-vcs" }
+                end,
             })
+        end, {
+        desc = "Find [G]rep",
+        silent = true,
+    })
 
-            vim.keymap.set("n", "<leader>fb", function()
-                require("telescope.builtin").buffers()
-            end, {
-                desc = "Find [B]uffers",
-                silent = true,
-            })
+    vim.keymap.set("n", "<leader>fb", function()
+        require("telescope.builtin").buffers()
+    end, {
+    desc = "Find [B]uffers",
+    silent = true,
+})
 
-            vim.keymap.set("n", "<leader>fh", function()
-                require("telescope.builtin").help_tags()
-            end, {
-                desc = "Find [H]elp",
-                silent = true,
+vim.keymap.set("n", "<leader>fh", function()
+    require("telescope.builtin").help_tags()
+end, {
+desc = "Find [H]elp",
+silent = true,
             })
 
             require("plugins.telescope.multigrep").setup()
