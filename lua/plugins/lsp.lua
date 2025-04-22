@@ -42,10 +42,6 @@ return {
         require("mason-lspconfig").setup({
             ensure_installed = {
                 "lua_ls",
-                "gopls",
-                "angularls",
-                "html",
-                "cssls",
                 "csharp_ls"
             },
             handlers = {
@@ -183,4 +179,3 @@ return {
         })
     end,
 }
-

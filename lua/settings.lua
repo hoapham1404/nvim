@@ -42,10 +42,21 @@ vim.opt.list = true
 vim.opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
 
 -- Preview substitutions live, as you type!
-vim.opt.inccommand = "split"
+vim.opt.inccomman = "split"
 
 -- Show which line your cursor is on
 vim.opt.cursorline = true
 vim.opt.colorcolumn = "100"
 
 vim.opt.scrolloff = 10
+
+
+
+
+-- Encoing settings
+vim.opt.encoding = "utf-8"
+vim.opt.fileencoding = "utf-8"
+vim.opt.fileencodings = { "utf-8", "cp932", "euc-jp", "iso-2022-jp" } -- fallback encodings for Japanese
+
+-- Automatically show file encoding in the statusline
+vim.opt.statusline = "%f %y %m %=ENC:[%{&fenc}] [%{&enc}]"
