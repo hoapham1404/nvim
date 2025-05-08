@@ -24,6 +24,20 @@ return {
         hipatterns.setup({
             highlighters = {
                 hex_color = hipatterns.gen_highlighter.hex_color(), -- Highlight hex color strings (`#rrggbb` like `#123456`)) using that color,
+                -- Highlight standalone 'FIXME', 'HACK', 'TODO', 'NOTE'
+                fixme     = { pattern = '%f[%w]()FIXME()%f[%W]', group = 'MiniHipatternsFixme' },
+                hack      = { pattern = '%f[%w]()HACK()%f[%W]', group = 'MiniHipatternsHack' },
+                todo      = { pattern = '%f[%w]()TODO()%f[%W]', group = 'MiniHipatternsTodo' },
+                note      = { pattern = '%f[%w]()NOTE()%f[%W]', group = 'MiniHipatternsNote' },
+
+                -- Highlight for log file [ERROR], [INF], [START],...
+                error_log = { pattern = '%[ERROR%]', group = 'DiagnosticError' },
+                warn_log  = { pattern = '%[WARN%]', group = 'DiagnosticWarn' },
+                info_log  = { pattern = '%[INFO%]', group = 'DiagnosticInfo' },
+                debug_log = { pattern = '%[DEBUG%]', group = 'DiagnosticHint' },
+                trace_log = { pattern = '%[TRACE%]', group = 'Comment' },
+                -- Highlight timestamps
+                timestamp = { pattern = '%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d', group = 'Special' },
             },
         })
 
