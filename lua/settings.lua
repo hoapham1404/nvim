@@ -11,9 +11,7 @@ vim.opt.shiftwidth = 4
 vim.opt.mouse = "a"
 vim.opt.showmode = true -- Show current mode in command line
 
-vim.schedule(function()
-    vim.opt.clipboard = "unnamedplus"
-end)
+vim.schedule(function() vim.opt.clipboard = "unnamedplus" end)
 
 vim.opt.termguicolors = true
 
