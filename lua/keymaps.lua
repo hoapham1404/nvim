@@ -13,11 +13,6 @@ keymap.set("n", "<C-j>", "<C-w><C-j>", { desc = "Move focus to the lower window"
 keymap.set("n", "<C-k>", "<C-w><C-k>", { desc = "Move focus to the upper window" })
 
 keymap.set("n", "<leader>pv", vim.cmd.Ex)
--- when type `<leader><leader>x` in normal mode, it will source the current file and print "sourced"
-keymap.set("n", "<leader><leader>", function()
-    vim.cmd("so")
-    print("Hoa Pham was sourced")
-end, { desc = "Source the current file" })
 
 --this config will make the cursor stay in the middle of the screen when you press <C-d> or <C-u>
 keymap.set("n", "<C-d>", "<C-d>zz")
@@ -39,7 +34,6 @@ keymap.set({ "n", "v" }, "<leader>d", [["_d]], { desc = "Delete without yanking"
 
 keymap.set("n", "<leader>bd", "<cmd>bd<CR>", { desc = "Delete buffer" })
 
--- Resize with arrows
 keymap.set("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
 keymap.set("n", "<C-Down>", ":resize -2<CR>", { desc = "Decrease window height" })
 keymap.set("n", "<C-Left>", ":vertical resize +2<CR>", { desc = "Increase window width" })

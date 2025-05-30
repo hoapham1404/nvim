@@ -2,14 +2,17 @@ return {
     "echasnovski/mini.nvim",
     version = false,
     config = function()
+        require('mini.statusline').setup()
         require("mini.diff").setup()
         require("mini.pairs").setup()
+        require("mini.indentscope").setup()
         require("mini.surround").setup({
+            n_lines = 2000,
             custom_surroundings = {
                 T = {
                     input = { "<(%w+)[^<>]->.-</%1>", "^<()%w+().*</()%w+()>$" },
                     output = function()
-                        local tag_name = MiniSurround.user_input("Tag name")
+                        local tag_name = require("mini.surround").user_input("Tag name")
                         if tag_name == nil then
                             return nil
                         end
@@ -20,13 +23,20 @@ return {
         })
 
         ------------------------------ Highlighting ------------------------------
+        vim.api.nvim_set_hl(0, 'MiniHipatternsInfo', { fg = '#61afef', bold = true })     -- Blue
+        vim.api.nvim_set_hl(0, 'MiniHipatternsWarn', { fg = '#e5c07b', bold = true })     -- Yellow
+        vim.api.nvim_set_hl(0, 'MiniHipatternsError', { fg = '#e06c75', bold = true })    -- Red
+        vim.api.nvim_set_hl(0, 'MiniHipatternsDebug', { fg = '#56b6c2', italic = true })  -- Cyan
+        vim.api.nvim_set_hl(0, 'MiniHipatternsCritical', { fg = '#be5046', bold = true }) -- Dark red
         local hipatterns = require("mini.hipatterns")
         hipatterns.setup({
             highlighters = {
                 hex_color = hipatterns.gen_highlighter.hex_color(), -- Highlight hex color strings (`#rrggbb` like `#123456`)) using that color,
+                info      = { pattern = '%f[%w]()INF()%f[%W]', group = 'MiniHipatternsInfo' },
+                error     = { pattern = '%f[%w]()ERR()%f[%W]', group = 'MiniHipatternsError' },
+                warn      = { pattern = '%f[%w]()WRN()%f[%W]', group = 'MiniHipatternsWarn' },
             },
         })
-
         ------------------------------ Commenting ------------------------------
         require("mini.comment").setup({
             options = {
