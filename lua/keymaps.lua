@@ -12,24 +12,32 @@ keymap.set("n", "<C-l>", "<C-w><C-l>", { desc = "Move focus to the right window"
 keymap.set("n", "<C-j>", "<C-w><C-j>", { desc = "Move focus to the lower window" })
 keymap.set("n", "<C-k>", "<C-w><C-k>", { desc = "Move focus to the upper window" })
 
-keymap.set("n", "<leader>pv", vim.cmd.Ex)
+keymap.set("n", "<leader>pv", vim.cmd.Ex, { desc = "Open Netrw" })
+keymap.set(
+    "n",
+    "<leader><leader>",
+    function()
+        vim.cmd("so")
+        print("Hoa Pham was sourced")
+    end,
+    { desc = "Source vim lua file" }
+)
 
---this config will make the cursor stay in the middle of the screen when you press <C-d> or <C-u>
-keymap.set("n", "<C-d>", "<C-d>zz")
-keymap.set("n", "<C-u>", "<C-u>zz")
+keymap.set("n", "<C-d>", "<C-d>zz", { desc = 'Make the cursor in the middle of screen when moving down by <Ctrl+d>' })
+keymap.set("n", "<C-u>", "<C-u>zz", { desc = 'Make the cursor in the middle of screen when moving up by <Ctrl+u>' })
 
--- Move selected line / block of text in visual mode (V) up or down
-keymap.set("v", "K", ":m '<-2<CR>gv=gv")
-keymap.set("v", "J", ":m '>+1<CR>gv=gv")
+keymap.set("v", "K", ":m '<-2<CR>gv=gv", { desc = "Move selected line / block of text in visual mode (V) up" })
+keymap.set("v", "J", ":m '>+1<CR>gv=gv", { desc = "Move selected line / block of text in visual mode (V) down" })
 
-keymap.set("x", "<leader>p", [["_dP]], { desc = "Paste without yanking" })
+
 keymap.set("n", "J", "mzJ`z", { desc = "Join lines and keep cursor position" })
+
 keymap.set("n", "n", "nzzzv")
 keymap.set("n", "N", "Nzzzv")
 
 keymap.set({ "n", "v" }, "<leader>y", [["+y]], { desc = "Yank to system clipboard" })
 keymap.set("n", "<leader>Y", [["+Y]], { desc = "Yank to system clipboard" })
-
+keymap.set("x", "<leader>p", [["_dP]], { desc = "Paste without yanking" })
 keymap.set({ "n", "v" }, "<leader>d", [["_d]], { desc = "Delete without yanking" })
 
 keymap.set("n", "<leader>bd", "<cmd>bd<CR>", { desc = "Delete buffer" })

@@ -4,6 +4,7 @@ return {
     config = function()
         require('mini.statusline').setup()
         require("mini.diff").setup()
+        require("mini.ai").setup()
         require("mini.pairs").setup()
         require("mini.indentscope").setup()
         require("mini.surround").setup({
@@ -28,6 +29,7 @@ return {
         vim.api.nvim_set_hl(0, 'MiniHipatternsError', { fg = '#e06c75', bold = true })    -- Red
         vim.api.nvim_set_hl(0, 'MiniHipatternsDebug', { fg = '#56b6c2', italic = true })  -- Cyan
         vim.api.nvim_set_hl(0, 'MiniHipatternsCritical', { fg = '#be5046', bold = true }) -- Dark red
+        vim.api.nvim_set_hl(0, 'Special', { fg = '#ffffff', bold = true })                -- White
         local hipatterns = require("mini.hipatterns")
         hipatterns.setup({
             highlighters = {
@@ -35,6 +37,10 @@ return {
                 info      = { pattern = '%f[%w]()INF()%f[%W]', group = 'MiniHipatternsInfo' },
                 error     = { pattern = '%f[%w]()ERR()%f[%W]', group = 'MiniHipatternsError' },
                 warn      = { pattern = '%f[%w]()WRN()%f[%W]', group = 'MiniHipatternsWarn' },
+                todo      = { pattern = '%f[%w]()TODO()%f[%W]', group = 'MiniHipatternsTodo' },
+                note      = { pattern = '%f[%w]()NOTE()%f[%W]', group = 'MiniHipatternsNote' },
+                -- Highlight timestamps
+                timestamp = { pattern = '%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d', group = 'Special' },
             },
         })
         ------------------------------ Commenting ------------------------------
