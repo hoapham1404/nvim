@@ -31,7 +31,6 @@ return {
             -- Harpoon Key mappings
             vim.keymap.set("n", "<leader>a", function()
                 harpoon:list():add()
-                vim.notify("Thank you, buddy!", vim.log.levels.DEBUG);
             end)
             vim.keymap.set("n", "<C-e>", function()
                 -- harpoon.ui:toggle_telescope(harpoon:list())

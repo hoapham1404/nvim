@@ -6,6 +6,8 @@ return {
         -- auto completion
         "hrsh7th/cmp-nvim-lsp",
         "hrsh7th/nvim-cmp",
+        -- just for go to references
+        "nvim-telescope/telescope.nvim",
     },
 
     config = function()
@@ -131,7 +133,8 @@ return {
 
                 -- Common LSP bindings
                 vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-                vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+                vim.keymap.set("n", "gr", require("telescope.builtin").lsp_references,
+                    vim.tbl_extend("force", opts, { desc = "LSP References" }))
                 vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
                 vim.keymap.set("n", "go", vim.lsp.buf.type_definition, opts)
                 vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
