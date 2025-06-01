@@ -137,15 +137,11 @@ return {
                 vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
                 vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
                 vim.keymap.set("n", "gs", vim.lsp.buf.signature_help, opts)
-                vim.keymap.set("n", "<F2>", vim.lsp.buf.rename, opts)
-                vim.keymap.set("n", "<F3>", function()
-                    vim.lsp.buf.format({ async = true, timeout_ms = 5000 })
-                end, opts)
-                vim.keymap.set("n", "<F4>", vim.lsp.buf.code_action, opts)
+                vim.keymap.set({ "n", "v" }, "<A-.>", vim.lsp.buf.code_action,
+                    vim.tbl_extend("force", opts, { desc = "Lsp Code Action" }))
 
                 -- Diagnostics
                 vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, opts)
-                vim.keymap.set("n", "<leader>ws", vim.lsp.buf.workspace_symbol, opts)
 
                 -- Format on save
                 if format_on_save then
