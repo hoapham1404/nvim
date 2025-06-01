@@ -3,11 +3,9 @@ return {
     dependencies = {
         "williamboman/mason-lspconfig.nvim",
         "williamboman/mason.nvim",
-
         -- auto completion
         "hrsh7th/cmp-nvim-lsp",
         "hrsh7th/nvim-cmp",
-
         -- .NET C# extended
         "Decodetalkers/csharpls-extended-lsp.nvim",
     },
@@ -46,6 +44,8 @@ return {
         })
         require("mason-lspconfig").setup({
             ensure_installed = {
+                "html",
+                "ts_ls",
             },
             handlers = {
                 function(server_name)

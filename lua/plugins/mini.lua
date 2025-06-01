@@ -57,14 +57,10 @@ return {
         })
         ---------------------------- Notify ------------------------------------
         require("mini.notify").setup({
-            window = {
-                config = { border = "rounded" },
-                winblend = 10,
-                anchor = "NE",
-            },
             lsp_progress = {
                 enable = true,
-                duration_last = 1000,
+                level = 'DEBUG',
+                duration_last = 30000,
             },
         })
         vim.notify = require("mini.notify").make_notify()
