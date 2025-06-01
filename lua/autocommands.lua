@@ -52,3 +52,17 @@ vim.api.nvim_create_user_command('LspStatus', function()
         end
     end
 end, {})
+
+vim.api.nvim_create_autocmd({ "BufEnter", "InsertLeave" }, {
+    callback = function()
+        vim.lsp.codelens.refresh()
+    end,
+    group = vim.api.nvim_create_augroup("LspCodeLensRefesh", { clear = true })
+})
+
+vim.api.nvim_create_autocmd({ "BufEnter" }, {
+    callback = function()
+        vim.lsp.inlay_hint.enable()
+    end,
+    group = vim.api.nvim_create_augroup("LspInlayHintEnable", { clear = true })
+})

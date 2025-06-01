@@ -6,7 +6,7 @@ return {
             { "https://github.com/tris203/rzls.nvim", config = true },
         },
         config = function()
-            local mason_registry = require("mason-registry")
+            -- local mason_registry = require("mason-registry")
             local rzls_path = vim.fn.expand("$MASON/packages/rzls/libexec")
             local cmd = {
                 "roslyn",
@@ -42,12 +42,19 @@ return {
                     ["csharp|code_lens"] = {
                         dotnet_enable_references_code_lens = true,
                     },
+                    ["csharp|completion"] = {
+                        dotnet_provide_regex_completions                        = true,
+                        dotnet_show_completion_items_from_unimported_namespaces = true,
+                        dotnet_show_name_completion_suggestions                 = true
+                    },
+                    ["csharp|formatting"] = {
+                        dotnet_organize_imports_on_format = true
+                    }
                 },
             })
             vim.lsp.enable("roslyn")
         end,
         init = function()
-            -- We add the Razor file types before the plugin loads.
             vim.filetype.add({
                 extension = {
                     razor = "razor",
