@@ -6,8 +6,6 @@ return {
         -- auto completion
         "hrsh7th/cmp-nvim-lsp",
         "hrsh7th/nvim-cmp",
-        -- .NET C# extended
-        "Decodetalkers/csharpls-extended-lsp.nvim",
     },
 
     config = function()
@@ -34,7 +32,6 @@ return {
         lspconfig_defaults.capabilities = capabilities
 
         local lspconfig = require("lspconfig")
-        local csharp_extended = require("csharpls_extended")
 
         require("mason").setup({
             registries = {
@@ -114,22 +111,6 @@ return {
                         end,
                     })
                 end,
-
-                -- C# setup with csharpls_extended
-                -- csharp_ls = function()
-                --     lspconfig.csharp_ls.setup({
-                --         cmd = { "csharp-ls" },
-                --         filetypes = { "cs" },
-                --         root_dir = lspconfig.util.root_pattern("*.sln", "*.csproj", ".git"),
-                --         handlers = {
-                --             ["textDocument/definition"] = csharp_extended.handler,
-                --             ["textDocument/typeDefinition"] = csharp_extended.handler,
-                --             ["textDocument/references"] = csharp_extended.handler,
-                --             ["textDocument/implementation"] = csharp_extended.handler,
-                --         },
-                --         capabilities = capabilities,
-                --     })
-                -- end,
             },
         })
 
