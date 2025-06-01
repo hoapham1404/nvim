@@ -38,11 +38,14 @@ return {
         local lspconfig = require("lspconfig")
         local csharp_extended = require("csharpls_extended")
 
-        require("mason").setup()
+        require("mason").setup({
+            registries = {
+                "github:mason-org/mason-registry",
+                "github:Crashdummyy/mason-registry",
+            },
+        })
         require("mason-lspconfig").setup({
             ensure_installed = {
-                "lua_ls",
-                "csharp_ls"
             },
             handlers = {
                 function(server_name)
@@ -113,20 +116,20 @@ return {
                 end,
 
                 -- C# setup with csharpls_extended
-                csharp_ls = function()
-                    lspconfig.csharp_ls.setup({
-                        cmd = { "csharp-ls" },
-                        filetypes = { "cs" },
-                        root_dir = lspconfig.util.root_pattern("*.sln", "*.csproj", ".git"),
-                        handlers = {
-                            ["textDocument/definition"] = csharp_extended.handler,
-                            ["textDocument/typeDefinition"] = csharp_extended.handler,
-                            ["textDocument/references"] = csharp_extended.handler,
-                            ["textDocument/implementation"] = csharp_extended.handler,
-                        },
-                        capabilities = capabilities,
-                    })
-                end,
+                -- csharp_ls = function()
+                --     lspconfig.csharp_ls.setup({
+                --         cmd = { "csharp-ls" },
+                --         filetypes = { "cs" },
+                --         root_dir = lspconfig.util.root_pattern("*.sln", "*.csproj", ".git"),
+                --         handlers = {
+                --             ["textDocument/definition"] = csharp_extended.handler,
+                --             ["textDocument/typeDefinition"] = csharp_extended.handler,
+                --             ["textDocument/references"] = csharp_extended.handler,
+                --             ["textDocument/implementation"] = csharp_extended.handler,
+                --         },
+                --         capabilities = capabilities,
+                --     })
+                -- end,
             },
         })
 
