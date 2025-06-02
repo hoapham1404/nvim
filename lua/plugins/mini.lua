@@ -59,10 +59,11 @@ return {
         require("mini.notify").setup({
             lsp_progress = {
                 enable = true,
-                level = 'DEBUG',
-                duration_last = 30000,
+                duration_last = 1000,
             },
         })
-        vim.notify = require("mini.notify").make_notify()
+        vim.notify = require("mini.notify").make_notify({
+            INFO = {duration = 3000},
+        })
     end,
 }

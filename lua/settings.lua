@@ -51,4 +51,4 @@ vim.opt.scrolloff = 10
 -- Encoing settings
 vim.opt.encoding = "utf-8"
 vim.opt.fileencoding = "utf-8"
-vim.opt.fileencodings = { "utf-8", "cp932", "euc-jp", "iso-2022-jp" } -- fallback encodings for Japanese
+vim.opt.fileencodings = { "utf-8", "cp932", "euc-jp", "iso-2022-jp" } -- fallback encodings for Japanese:w
