@@ -39,46 +39,18 @@ return {
 
             vim.keymap.set("n", "<leader>h", function()
                 harpoon:list():select(1)
-                vim.notify("Pane 1, buddy", vim.log.levels.INFO, {
-                    title = "Harpoon",
-                    timeout = 2000,
-                    on_open = function(win)
-                        vim.api.nvim_win_set_config(win, { border = "rounded" })
-                    end,
-                })
             end)
 
             vim.keymap.set("n", "<leader>j", function()
                 harpoon:list():select(2)
-                vim.notify("Pane 2, buddy", vim.log.levels.INFO, {
-                    title = "Harpoon",
-                    timeout = 2000,
-                    on_open = function(win)
-                        vim.api.nvim_win_set_config(win, { border = "rounded" })
-                    end,
-                })
             end)
 
             vim.keymap.set("n", "<leader>k", function()
                 harpoon:list():select(3)
-                vim.notify("Pane 3, buddy", vim.log.levels.INFO, {
-                    title = "Harpoon",
-                    timeout = 2000,
-                    on_open = function(win)
-                        vim.api.nvim_win_set_config(win, { border = "rounded" })
-                    end,
-                })
             end)
 
             vim.keymap.set("n", "<leader>l", function()
                 harpoon:list():select(4)
-                vim.notify("Pane 4, buddy", vim.log.levels.INFO, {
-                    title = "Harpoon",
-                    timeout = 2000,
-                    on_open = function(win)
-                        vim.api.nvim_win_set_config(win, { border = "rounded" })
-                    end,
-                })
             end)
 
             vim.keymap.set("n", "<leader>H", function()

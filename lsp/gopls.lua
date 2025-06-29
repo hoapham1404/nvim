@@ -4,7 +4,7 @@ local go_bin = ""
 if os.is_linux() then
     go_bin = vim.fs.joinpath(vim.loop.os_homedir(), "go","bin","gopls".."")
 elseif os.is_windows() then
-    go_bin = vim.fs.joinpath(vim.loop.os_homedir(), ".local","go","bin","gopls".."exe")
+    go_bin = vim.fs.joinpath(vim.loop.os_homedir(), "go","bin","gopls"..".".."exe")
 else
     vim.notify("Unsupported OS for gopls", vim.log.levels.ERROR)
     return
