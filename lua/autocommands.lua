@@ -42,17 +42,6 @@ vim.api.nvim_create_autocmd({ "BufEnter", "BufNewFile" }, {
     command = "set filetype=typescriptreact",
 })
 
-vim.api.nvim_create_user_command('LspStatus', function()
-    local clients = vim.lsp.get_active_clients({ bufnr = vim.api.nvim_get_current_buf() })
-    if #clients == 0 then
-        print("No LSP attached.")
-    else
-        for _, client in ipairs(clients) do
-            print("Attached LSP: " .. client.name)
-        end
-    end
-end, {})
-
 vim.api.nvim_create_autocmd({ "BufEnter", "InsertLeave" }, {
     callback = function()
         vim.lsp.codelens.refresh()
@@ -64,8 +53,11 @@ vim.api.nvim_create_autocmd("LspAttach", {
     desc = "LSP actions",
     callback = function(event)
         local client = vim.lsp.get_client_by_id(event.data.client_id)
+        vim.notify("lspattach: " .. client.name)
         if client then
             vim.notify("✅ LSP attached: " .. client.name, vim.log.levels.INFO)
+        else
+            vim.notify("No lsp attached!!!", vim.log.levels.ERROR)
         end
         local bufnr = event.buf
         local opts = { buffer = bufnr }

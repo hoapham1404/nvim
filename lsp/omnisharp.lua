@@ -5,7 +5,7 @@ local omnisharp_bin = ""
 if os.is_linux() then
     omnisharp_bin = vim.fs.joinpath(vim.loop.os_homedir(), ".local", "bin", "omnisharp", "OmniSharp".."")
 elseif os.is_windows() then
-    omnisharp_bin = vim.fs.joinpath(vim.loop.os_homedir(), ".local", "bin", "omnisharp", "OmniSharp".."exe")
+    omnisharp_bin = vim.fs.joinpath(vim.loop.os_homedir(), "omnisharp", "OmniSharp"..".".."exe")
 else
     vim.notify("Unsupported OS for omnisharp", vim.log.levels.ERROR)
     return
@@ -23,7 +23,7 @@ return {
         "--languageserver",
     },
     filetypes = {"cs", "html", "vb"},
-    root_markers = { '.sln', '.csproj', 'omnisharp.json', 'function.json' },
+    root_markers = { ".sln", ".csproj", "omnisharp.json", "function.json" },
     init_options = {},
     capabilities = {
         workspace = {
