@@ -1,13 +1,6 @@
 -- npm install -g typescript-language-server typescript
 return {
-    cmd = {"typescript-language-server", "--stdio"},
-    filetypes = {
-        "javascript",
-        "javascriptreact",
-        "javascript.jsx",
-        "typescript",
-        "typescriptreact",
-        "typescript.tsx"
-    },
-    root_markers = {"tsconfig.json","jsconfig.json","package.json",".git"}
+    cmd = { "typescript-language-server", "--stdio" },
+    filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" },
+    root_markers = { "tsconfig.json", "jsconfig.json", "package.json", ".git" }
 }
