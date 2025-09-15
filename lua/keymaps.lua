@@ -51,6 +51,10 @@ keymap.set("n", "<CR>", '@="m`o<C-V><Esc>``"<CR>', { desc = "Add blank line in n
 keymap.set("n", "<leader><CR>", '@="m`O<C-V><Esc>``"<CR>', { desc = "Add upper blank line in normal mode" })
 
 local case_convert = require("utils.case_convert")
-keymap.set("n", "<leader>cc", function()
+keymap.set("n", "<leader>sc", function()
     case_convert.snake_to_camel()
 end, { desc = "Convert snake_case to camelCase" })
+
+keymap.set("n", "<leader>cs", function()
+    case_convert.camel_to_snake()
+end, { desc = "Convert camelCase to snake_case" })
