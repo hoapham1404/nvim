@@ -22,7 +22,7 @@ return {
         "utf-8",
         "--languageserver",
     },
-    filetypes = {"cs", "html", "vb"},
+    filetypes = {"cs", "razor", "vb"},
     root_markers = { ".sln", ".csproj", "omnisharp.json", "function.json" },
     init_options = {},
     capabilities = {

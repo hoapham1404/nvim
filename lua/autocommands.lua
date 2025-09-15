@@ -102,3 +102,12 @@ vim.api.nvim_create_autocmd("LspAttach", {
         end
     end,
 })
+
+
+-- Support Blazor source code (.razor)
+vim.api.nvim_create_autocmd({"BufRead", "BufNewFile"}, {
+  pattern = "*.razor",
+  callback = function()
+    vim.bo.filetype = "razor"
+  end,
+})

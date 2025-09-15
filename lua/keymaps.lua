@@ -49,3 +49,8 @@ keymap.set("n", "<C-Right>", ":vertical resize -2<CR>", { desc = "Decrease windo
 
 keymap.set("n", "<CR>", '@="m`o<C-V><Esc>``"<CR>', { desc = "Add blank line in normal mode" })
 keymap.set("n", "<leader><CR>", '@="m`O<C-V><Esc>``"<CR>', { desc = "Add upper blank line in normal mode" })
+
+local case_convert = require("utils.case_convert")
+keymap.set("n", "<leader>cc", function()
+    case_convert.snake_to_camel()
+end, { desc = "Convert snake_case to camelCase" })
