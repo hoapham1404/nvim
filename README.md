@@ -43,7 +43,9 @@ git clone https://github.com/hoapham1404/nvim.git "$env:LOCALAPPDATA\nvim"
 ```text
 nvim
 ```
+
 Inside Neovim run:
+
 ```
 :Lazy sync
 ```
