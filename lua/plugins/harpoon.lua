@@ -2,23 +2,48 @@ return {
     "ThePrimeagen/harpoon",
     branch = "harpoon2",
     dependencies = { "nvim-lua/plenary.nvim" },
-    config = function ()
+    config = function()
         local harpoon = require("harpoon")
+        local notify = vim.notify -- built-in Neovim notify, or replace with `require("notify")` if using nvim-notify
 
-        -- REQUIRED
         harpoon:setup()
-        -- REQUIRED
 
-        vim.keymap.set("n", "<C-a", function() harpoon:list():add() end)
-        vim.keymap.set("n", "<C-e>", function() harpoon.ui:toggle_quick_menu(harpoon:list()) end)
+        -- Helpers
+        local function add_file()
+            harpoon:list():add()
+            notify("Harpoon: file added!", vim.log.levels.INFO)
+        end
 
-        vim.keymap.set("n", "<C-h>", function() harpoon:list():select(1) end)
-        vim.keymap.set("n", "<C-j>", function() harpoon:list():select(2) end)
-        vim.keymap.set("n", "<C-k>", function() harpoon:list():select(3) end)
-        vim.keymap.set("n", "<C-l>", function() harpoon:list():select(4) end)
+        local function toggle_menu()
+            harpoon.ui:toggle_quick_menu(harpoon:list())
+            notify("Harpoon: menu toggled", vim.log.levels.INFO)
+        end
 
-        -- Toggle previous & next buffers stored within Harpoon list
-        vim.keymap.set("n", "<C-S-P>", function() harpoon:list():prev() end)
-        vim.keymap.set("n", "<C-S-N>", function() harpoon:list():next() end)
+        local function select_file(idx)
+            harpoon:list():select(idx)
+            notify("Harpoon: jumped to file " .. idx, vim.log.levels.INFO)
+        end
+
+        local function prev_file()
+            harpoon:list():prev()
+            notify("Harpoon: previous file", vim.log.levels.INFO)
+        end
+
+        local function next_file()
+            harpoon:list():next()
+            notify("Harpoon: next file", vim.log.levels.INFO)
+        end
+
+        -- Keymaps
+        vim.keymap.set("n", "<C-a>", add_file, { desc = "Add file to Harpoon" })
+        vim.keymap.set("n", "<C-e>", toggle_menu, { desc = "Toggle Harpoon menu" })
+
+        vim.keymap.set("n", "<C-h>", function() select_file(1) end, { desc = "Harpoon file 1" })
+        vim.keymap.set("n", "<C-j>", function() select_file(2) end, { desc = "Harpoon file 2" })
+        vim.keymap.set("n", "<C-k>", function() select_file(3) end, { desc = "Harpoon file 3" })
+        vim.keymap.set("n", "<C-l>", function() select_file(4) end, { desc = "Harpoon file 4" })
+
+        vim.keymap.set("n", "<C-S-P>", prev_file, { desc = "Harpoon prev file" })
+        vim.keymap.set("n", "<C-S-N>", next_file, { desc = "Harpoon next file" })
     end
 }
