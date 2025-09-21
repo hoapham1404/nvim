@@ -47,5 +47,6 @@ return {
 
         vim.keymap.set("n", "<C-A-P>", prev_file, { desc = "Harpoon prev file" })
         vim.keymap.set("n", "<C-A-N>", next_file, { desc = "Harpoon next file" })
+        vim.keymap.set("n", "<C-A-X>", function() harpoon:list():clear() end)
     end
 }
