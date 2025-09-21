@@ -4,9 +4,11 @@ return {
     dependencies = { "nvim-lua/plenary.nvim" },
     config = function()
         local harpoon = require("harpoon")
+        local harpoon_extensions = require("harpoon.extensions")
         local notify = vim.notify -- built-in Neovim notify, or replace with `require("notify")` if using nvim-notify
 
         harpoon:setup()
+        harpoon:extend(harpoon_extensions.builtins.highlight_current_file())
 
         -- Helpers
         local function add_file()
@@ -43,7 +45,7 @@ return {
         vim.keymap.set("n", "<C-k>", function() select_file(3) end, { desc = "Harpoon file 3" })
         vim.keymap.set("n", "<C-l>", function() select_file(4) end, { desc = "Harpoon file 4" })
 
-        vim.keymap.set("n", "<C-S-P>", prev_file, { desc = "Harpoon prev file" })
-        vim.keymap.set("n", "<C-S-N>", next_file, { desc = "Harpoon next file" })
+        vim.keymap.set("n", "<C-A-P>", prev_file, { desc = "Harpoon prev file" })
+        vim.keymap.set("n", "<C-A-N>", next_file, { desc = "Harpoon next file" })
     end
 }
