@@ -24,11 +24,13 @@ return {
         local function select_file(idx)
             harpoon:list():select(idx)
             notify("Harpoon: jumped to file " .. idx, vim.log.levels.INFO)
+            -- TODO: Change notify message: Harpoon: Go to file <file_name>, for example "Harpoon: Go to file Harpoon.lua"
         end
 
         local function prev_file()
             harpoon:list():prev()
             notify("Harpoon: previous file", vim.log.levels.INFO)
+            -- TODO: Change notify message: Harpoon: Go to file <file_name>, for example "Harpoon: Go to file Harpoon.lua"
         end
 
         local function next_file()
