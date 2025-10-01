@@ -45,15 +45,15 @@ return {
         vim.keymap.set("n", "<C-a>", add_file, { desc = "Add file to Harpoon" })
         vim.keymap.set("n", "<C-e>", toggle_menu, { desc = "Toggle Harpoon menu" })
 
-        vim.keymap.set("n", "<C-h>", function() select_file(1) end, { desc = "Harpoon file 1" })
-        vim.keymap.set("n", "<C-j>", function() select_file(2) end, { desc = "Harpoon file 2" })
-        vim.keymap.set("n", "<C-k>", function() select_file(3) end, { desc = "Harpoon file 3" })
-        vim.keymap.set("n", "<C-l>", function() select_file(4) end, { desc = "Harpoon file 4" })
+        vim.keymap.set("n", "<leader>h", function() select_file(1) end, { desc = "Harpoon file 1" })
+        vim.keymap.set("n", "<leader>j", function() select_file(2) end, { desc = "Harpoon file 2" })
+        vim.keymap.set("n", "<leader>k", function() select_file(3) end, { desc = "Harpoon file 3" })
+        vim.keymap.set("n", "<leader>l", function() select_file(4) end, { desc = "Harpoon file 4" })
 
-        vim.keymap.set("n", "!", function() replace_at(1) end, { desc = "Harpoon replace at 1" })
-        vim.keymap.set("n", "@", function() replace_at(2) end, { desc = "Harpoon replace at 2" })
-        vim.keymap.set("n", "#", function() replace_at(3) end, { desc = "Harpoon replace at 3" })
-        vim.keymap.set("n", "$", function() replace_at(4) end, { desc = "Harpoon replace at 4" })
+        vim.keymap.set("n", "<S-H>", function() replace_at(1) end, { desc = "Harpoon replace at 1" })
+        vim.keymap.set("n", "<S-J>", function() replace_at(2) end, { desc = "Harpoon replace at 2" })
+        vim.keymap.set("n", "<S-K>", function() replace_at(3) end, { desc = "Harpoon replace at 3" })
+        vim.keymap.set("n", "<S-L>", function() replace_at(4) end, { desc = "Harpoon replace at 4" })
 
         vim.keymap.set("n", "<C-A-P>", prev_file, { desc = "Harpoon prev file" })
         vim.keymap.set("n", "<C-A-N>", next_file, { desc = "Harpoon next file" })
