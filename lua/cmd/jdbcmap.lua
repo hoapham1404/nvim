@@ -1,8 +1,8 @@
 -- JDBC Parameter Mapping - Legacy Entry Point
 -- This file now delegates to the new modular architecture
 
--- Import the new modular implementation
-local jdbcmap = require('cmd.jdbcmap')
+-- Import the new modular implementation (using .init to avoid circular dependency)
+local jdbcmap = require('cmd.jdbcmap.init')
 
 -- Create a compatibility wrapper that preserves the original interface
 local M = {}
