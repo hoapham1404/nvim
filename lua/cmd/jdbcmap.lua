@@ -42,25 +42,15 @@ function M.extract_sql_from_method()
   local sql_parts = {}
 
   for _, line in ipairs(method.lines) do
-    -- Extract the chain: sqlBuf.append(...).append(...).append(...)
-    local chain = line:match("sqlBuf%.append%((.+)%)")
-    if chain then
-      -- Collect all parts in this chain
-      local parts = {}
-      -- Find all string literals like ".COLUMN, "
-      for lit in chain:gmatch('"(.-)"') do
-        table.insert(parts, lit)
-      end
-      -- Find all variable tokens (non-quoted)
-      for var in chain:gmatch("([A-Za-z_][A-Za-z0-9_]*)") do
-        if var ~= "append" and var ~= "sqlBuf" and var ~= "new" and var ~= "StringBuilder" then
-          -- avoid keywords or method names
-          table.insert(parts, "<" .. var .. ">")
+    -- Match .append() calls with string literals only
+    local append_content = line:match("%.append%s*%((.+)%)")
+    if append_content then
+      -- Only extract actual string literals (quoted content)
+      for str_literal in append_content:gmatch('"([^"]*)"') do
+        if str_literal and #str_literal > 0 then
+          table.insert(sql_parts, str_literal)
         end
       end
-
-      -- merge together for this line
-      table.insert(sql_parts, table.concat(parts, ""))
     end
   end
 
@@ -83,40 +73,155 @@ function M.extract_columns_from_sql(sql)
   end
 
   local columns = {}
-  local sql_type = sql:match("^%s*(%w+)")
-  if not sql_type then
-    print("❌ Cannot detect SQL type.")
-    return {}
-  end
 
-  sql_type = sql_type:upper()
-  print("🧩 SQL Type detected:", sql_type)
+  -- Common SQL keywords to filter out
+  local sql_keywords = {
+    INSERT = true, INTO = true, VALUES = true, SELECT = true, FROM = true,
+    UPDATE = true, SET = true, WHERE = true, AND = true, OR = true,
+    SYSDATE = true, NULL = true, append = true, toString = true
+  }
 
-  if sql_type == "UPDATE" then
-    for col in sql:gmatch("([%w_%.]+)%s*=%s*%?") do
-      table.insert(columns, col)
-    end
-  elseif sql_type == "INSERT" then
+  -- Handle SELECT and INSERT differently
+  if sql:match("INSERT%s+INTO") then
+    -- For INSERT: capture inside parentheses before VALUES
     local col_section = sql:match("%((.-)%)%s*VALUES")
     if col_section then
-      for col in col_section:gmatch("([%w_]+)") do
-        table.insert(columns, col)
+      -- Clean the section and extract column names
+      col_section = col_section:gsub("[<>]", "") -- Remove < > markers
+      for col in col_section:gmatch("([A-Z_][A-Z0-9_]*)") do
+        -- Filter out SQL keywords and method names
+        if not sql_keywords[col] and not col:match("^(append|toString|SYSDATE)$") then
+          table.insert(columns, col)
+        end
       end
     end
-  elseif sql_type == "SELECT" or sql_type == "DELETE" then
-    for col in sql:gmatch("([%w_%.]+)%s*=%s*%?") do
-      table.insert(columns, col)
+  elseif sql:match("SELECT") then
+    -- For SELECT: capture after SELECT and before FROM
+    local col_section = sql:match("SELECT%s+(.-)%s+FROM")
+    if col_section then
+      col_section = col_section:gsub("[<>]", "") -- Remove < > markers
+      for col in col_section:gmatch("([A-Z_][A-Z0-9_]*)") do
+        if not sql_keywords[col] then
+          table.insert(columns, col)
+        end
+      end
     end
-  else
-    print("⚠️ Unsupported SQL type:", sql_type)
+  elseif sql:match("UPDATE") then
+    -- For UPDATE: capture after SET
+    local col_section = sql:match("SET%s+(.-)%s+WHERE")
+    if col_section then
+      col_section = col_section:gsub("[<>]", "") -- Remove < > markers
+      for col in col_section:gmatch("([A-Z_][A-Z0-9_]*)%s*=") do
+        if not sql_keywords[col] then
+          table.insert(columns, col)
+        end
+      end
+    end
+  end
+
+  -- ✅ Deduplicate column names (keep first appearance)
+  local unique, seen = {}, {}
+  for _, col in ipairs(columns) do
+    if not seen[col] then
+      table.insert(unique, col)
+      seen[col] = true
+    end
   end
 
   print("✅ Found columns:")
-  for i, col in ipairs(columns) do
-    print(string.format("%2d. %s", i, col))
+  for i, c in ipairs(unique) do
+    print(string.format("%2d. %s", i, c))
   end
 
-  return columns
+  return unique
+end
+
+---------------------------------------------------------------------
+-- STEP 3.5: Count actual ? placeholders in SQL
+---------------------------------------------------------------------
+function M.count_placeholders(sql)
+  if not sql or sql == "" then
+    print("❌ No SQL to count placeholders.")
+    return 0
+  end
+
+  local count = 0
+  -- Count all ? characters that are not inside string literals
+  local in_string = false
+  local escape_next = false
+
+  for i = 1, #sql do
+    local char = sql:sub(i, i)
+
+    if escape_next then
+      escape_next = false
+    elseif char == "\\" then
+      escape_next = true
+    elseif char == "'" or char == '"' then
+      in_string = not in_string
+    elseif char == "?" and not in_string then
+      count = count + 1
+    end
+  end
+
+  print("✅ Found " .. count .. " parameter placeholders (?)")
+  return count
+end
+
+---------------------------------------------------------------------
+-- STEP 3.6: Analyze VALUES section to find hardcoded values
+---------------------------------------------------------------------
+function M.analyze_hardcoded_values(sql, columns)
+  if not sql or sql == "" or not columns then
+    return {}
+  end
+
+  local hardcoded_info = {}
+
+  -- Extract the VALUES section
+  local values_section = sql:match("VALUES%s*%(%s*(.-)%s*%)")
+  if not values_section then
+    return hardcoded_info
+  end
+
+  -- Split by commas to get individual values
+  local values = {}
+  local temp_val = ""
+  local paren_depth = 0
+
+  for i = 1, #values_section do
+    local char = values_section:sub(i, i)
+    if char == "(" then
+      paren_depth = paren_depth + 1
+    elseif char == ")" then
+      paren_depth = paren_depth - 1
+    elseif char == "," and paren_depth == 0 then
+      local cleaned_val = temp_val:gsub("^%s*(.-)%s*$", "%1")
+      table.insert(values, cleaned_val)
+      temp_val = ""
+    else
+      temp_val = temp_val .. char
+    end
+  end
+  -- Add the last value
+  if temp_val ~= "" then
+    local cleaned_val = temp_val:gsub("^%s*(.-)%s*$", "%1")
+    table.insert(values, cleaned_val)
+  end
+
+  -- Map each value to its column
+  for i, value in ipairs(values) do
+    local column = columns[i]
+    if column and value ~= "?" then
+      -- This column uses a hardcoded value
+      hardcoded_info[i] = {
+        column = column,
+        value = value
+      }
+    end
+  end
+
+  return hardcoded_info
 end
 
 ---------------------------------------------------------------------
@@ -135,14 +240,19 @@ function M.extract_params_from_method(method)
   local params = {}
 
   for _, line in ipairs(lines) do
-    -- Match: .param(idx++, expr, Types.SOMETHING)
-    local expr, sqltype = line:match("%.param%s*%([^,]+,%s*([^,%)]-)%s*,%s*Types%.([A-Z_]+)")
-    if expr and sqltype then
+    -- Match 3-argument form: .param(idx++, <expr>, Types.SOMETHING)
+    -- Allow nested parentheses, dots, and method calls in <expr>
+    local idx_part, expr, sqltype = line:match("%.param%s*%(%s*([^,]+),%s*([^,]+),%s*Types%.([A-Z_]+)")
+    if idx_part and expr and sqltype then
+      -- Clean up the expression (remove extra whitespace)
+      expr = expr:gsub("^%s*(.-)%s*$", "%1")
       table.insert(params, { expr = expr, sqltype = "Types." .. sqltype })
     else
-      -- Match: .param(idx++, expr)
-      local expr2 = line:match("%.param%s*%([^,]+,%s*([^%)]-)%s*%)")
-      if expr2 then
+      -- 2-arg form: .param(idx++, <expr>)
+      local idx_part2, expr2 = line:match("%.param%s*%(%s*([^,]+),%s*([^)]+)%s*%)")
+      if idx_part2 and expr2 then
+        -- Clean up the expression (remove extra whitespace)
+        expr2 = expr2:gsub("^%s*(.-)%s*$", "%1")
         table.insert(params, { expr = expr2, sqltype = "" })
       end
     end
@@ -167,17 +277,69 @@ function M.map_columns_and_params()
 
   local columns = M.extract_columns_from_sql(sql)
   local params = M.extract_params_from_method(method)
+  local placeholder_count = M.count_placeholders(sql)
+  local hardcoded_info = M.analyze_hardcoded_values(sql, columns)
 
   print("\n🔗 JDBC Parameter Mapping:")
-  print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"))
-  print(string.rep("-", 90))
+  print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters",
+    #columns, placeholder_count, #params))
 
-  local max_len = math.max(#columns, #params)
-  for i = 1, max_len do
-    local col = columns[i] or "(extra param)"
-    local param = params[i] and params[i].expr or "(missing param)"
-    local sqltype = params[i] and params[i].sqltype or ""
-    print(string.format("%-4d %-25s %-45s %s", i, col, param, sqltype))
+  -- Show warning if mismatch
+  if placeholder_count ~= #params then
+    print("⚠️  WARNING: Parameter count (" .. #params .. ") doesn't match placeholder count (" .. placeholder_count .. ")")
+    print("   This might indicate hardcoded values in SQL (like SYSDATE) or missing parameters.")
+  end
+
+  print("\n" .. string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
+  print(string.rep("-", 95))
+
+  -- Map parameters to columns and placeholders
+  local param_index = 1
+  for i = 1, #columns do
+    local column_name = columns[i]
+    local param = ""
+    local sqltype = ""
+
+    if hardcoded_info[i] then
+      -- This column uses a hardcoded value
+      param = "🔒 " .. hardcoded_info[i].value .. " (hardcoded)"
+      sqltype = "(SQL constant)"
+    else
+      -- This column should use a parameter
+      if params[param_index] then
+        param = params[param_index].expr
+        sqltype = params[param_index].sqltype
+        param_index = param_index + 1
+      else
+        param = "(⚠️ missing param)"
+      end
+    end
+
+    print(string.format("%-4d %-25s %-45s %s", i, column_name, param, sqltype))
+  end
+
+  -- Show any extra parameters
+  while param_index <= #params do
+    local param = params[param_index]
+    print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params, "(⚠️ extra param)", param.expr, param.sqltype))
+    param_index = param_index + 1
+  end
+
+  -- Show hardcoded values summary
+  if next(hardcoded_info) then
+    print("\n🔒 Hardcoded Values Detected:")
+    for i, info in pairs(hardcoded_info) do
+      print(string.format("   • Column %d (%s): %s", i, info.column, info.value))
+    end
+  end
+
+  -- Show placeholder count for reference
+  if placeholder_count ~= #columns then
+    print("\n📋 Placeholder Info:")
+    print(string.format("   • %d columns defined in SQL", #columns))
+    print(string.format("   • %d placeholders (?) in SQL", placeholder_count))
+    print(string.format("   • %d parameters in .param() calls", #params))
+    print(string.format("   • %d hardcoded values", #columns - placeholder_count))
   end
 end
 
