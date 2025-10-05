@@ -137,6 +137,30 @@ function M.extract_columns_from_sql(sql)
 end
 
 ---------------------------------------------------------------------
+-- STEP 3.1: Extract WHERE clause columns for SELECT queries
+---------------------------------------------------------------------
+function M.extract_where_columns_from_sql(sql)
+  if not sql or sql == "" then
+    return {}
+  end
+
+  local where_columns = {}
+
+  -- Extract WHERE clause
+  local where_section = sql:match("WHERE%s+(.*)$")
+  if not where_section then
+    return where_columns
+  end
+
+  -- Find column names followed by = ?
+  for col in where_section:gmatch("([A-Z_][A-Z0-9_]*)%s*=%s*%?") do
+    table.insert(where_columns, col)
+  end
+
+  return where_columns
+end
+
+---------------------------------------------------------------------
 -- STEP 3.5: Count actual ? placeholders in SQL
 ---------------------------------------------------------------------
 function M.count_placeholders(sql)
@@ -278,11 +302,23 @@ function M.map_columns_and_params()
   local columns = M.extract_columns_from_sql(sql)
   local params = M.extract_params_from_method(method)
   local placeholder_count = M.count_placeholders(sql)
-  local hardcoded_info = M.analyze_hardcoded_values(sql, columns)
 
-  print("\n🔗 JDBC Parameter Mapping:")
-  print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters",
-    #columns, placeholder_count, #params))
+  -- Handle SELECT queries differently
+  local is_select = sql:match("SELECT")
+  local where_columns = {}
+  local hardcoded_info = {}
+
+  if is_select then
+    where_columns = M.extract_where_columns_from_sql(sql)
+    print("\n🔗 JDBC Parameter Mapping (SELECT Query):")
+    print(string.format("📊 Summary: %d selected columns, %d WHERE parameters, %d placeholders (?), %d parameters",
+      #columns, #where_columns, placeholder_count, #params))
+  else
+    hardcoded_info = M.analyze_hardcoded_values(sql, columns)
+    print("\n🔗 JDBC Parameter Mapping:")
+    print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters",
+      #columns, placeholder_count, #params))
+  end
 
   -- Show warning if mismatch
   if placeholder_count ~= #params then
@@ -290,56 +326,81 @@ function M.map_columns_and_params()
     print("   This might indicate hardcoded values in SQL (like SYSDATE) or missing parameters.")
   end
 
-  print("\n" .. string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
-  print(string.rep("-", 95))
+  if is_select then
+    -- For SELECT: Show selected columns and WHERE parameters separately
+    print("\n📋 Selected Columns (Output):")
+    print(string.format("%-4s %-30s", "#", "Column Name"))
+    print(string.rep("-", 40))
+    for i, col in ipairs(columns) do
+      print(string.format("%-4d %-30s", i, col))
+    end
 
-  -- Map parameters to columns and placeholders
-  local param_index = 1
-  for i = 1, #columns do
-    local column_name = columns[i]
-    local param = ""
-    local sqltype = ""
+    if #where_columns > 0 or #params > 0 then
+      print("\n🔍 WHERE Clause Parameters:")
+      print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"))
+      print(string.rep("-", 95))
 
-    if hardcoded_info[i] then
-      -- This column uses a hardcoded value
-      param = "🔒 " .. hardcoded_info[i].value .. " (hardcoded)"
-      sqltype = "(SQL constant)"
-    else
-      -- This column should use a parameter
-      if params[param_index] then
-        param = params[param_index].expr
-        sqltype = params[param_index].sqltype
-        param_index = param_index + 1
+      local max_len = math.max(#where_columns, #params)
+      for i = 1, max_len do
+        local where_col = where_columns[i] or "(extra param)"
+        local param = params[i] and params[i].expr or "(missing param)"
+        local sqltype = params[i] and params[i].sqltype or ""
+        print(string.format("%-4d %-25s %-45s %s", i, where_col, param, sqltype))
+      end
+    end
+  else
+    -- For INSERT/UPDATE: Use existing logic
+    print("\n" .. string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
+    print(string.rep("-", 95))
+
+    -- Map parameters to columns and placeholders
+    local param_index = 1
+    for i = 1, #columns do
+      local column_name = columns[i]
+      local param = ""
+      local sqltype = ""
+
+      if hardcoded_info[i] then
+        -- This column uses a hardcoded value
+        param = "🔒 " .. hardcoded_info[i].value .. " (hardcoded)"
+        sqltype = "(SQL constant)"
       else
-        param = "(⚠️ missing param)"
+        -- This column should use a parameter
+        if params[param_index] then
+          param = params[param_index].expr
+          sqltype = params[param_index].sqltype
+          param_index = param_index + 1
+        else
+          param = "(⚠️ missing param)"
+        end
+      end
+
+      print(string.format("%-4d %-25s %-45s %s", i, column_name, param, sqltype))
+    end
+
+    -- Show any extra parameters
+    while param_index <= #params do
+      local param = params[param_index]
+      print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params, "(⚠️ extra param)", param.expr, param.sqltype))
+      param_index = param_index + 1
+    end
+
+    -- Show hardcoded values summary
+    if next(hardcoded_info) then
+      print("\n🔒 Hardcoded Values Detected:")
+      for i, info in pairs(hardcoded_info) do
+        print(string.format("   • Column %d (%s): %s", i, info.column, info.value))
       end
     end
 
-    print(string.format("%-4d %-25s %-45s %s", i, column_name, param, sqltype))
-  end
-
-  -- Show any extra parameters
-  while param_index <= #params do
-    local param = params[param_index]
-    print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params, "(⚠️ extra param)", param.expr, param.sqltype))
-    param_index = param_index + 1
-  end
-
-  -- Show hardcoded values summary
-  if next(hardcoded_info) then
-    print("\n🔒 Hardcoded Values Detected:")
-    for i, info in pairs(hardcoded_info) do
-      print(string.format("   • Column %d (%s): %s", i, info.column, info.value))
+    -- Show placeholder count for reference
+    if placeholder_count ~= #columns then
+      print("\n📋 Placeholder Info:")
+      print(string.format("   • %d columns defined in SQL", #columns))
+      print(string.format("   • %d placeholders (?) in SQL", placeholder_count))
+      print(string.format("   • %d parameters in .param() calls", #params))
+      print(string.format("   • %d hardcoded values", #columns - placeholder_count))
     end
-  end
-
-  -- Show placeholder count for reference
-  if placeholder_count ~= #columns then
-    print("\n📋 Placeholder Info:")
-    print(string.format("   • %d columns defined in SQL", #columns))
-    print(string.format("   • %d placeholders (?) in SQL", placeholder_count))
-    print(string.format("   • %d parameters in .param() calls", #params))
-    print(string.format("   • %d hardcoded values", #columns - placeholder_count))
   end
 end
 
