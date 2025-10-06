@@ -1,22 +1,33 @@
--- JDBC Parameter Mapping - Legacy Entry Point
--- This file now delegates to the new modular architecture
-
--- Import the new modular implementation (using .init to avoid circular dependency)
-local jdbcmap = require('cmd.jdbcmap.init')
-
--- Create a compatibility wrapper that preserves the original interface
+-- ~/.config/nvim/lua/jdbcmap.lua
 local M = {}
 
--- Delegate main function to new implementation
-M.map_columns_and_params = jdbcmap.map_columns_and_params
+---------------------------------------------------------------------
+-- STEP 1: Get current Java method lines using Treesitter
+---------------------------------------------------------------------
+function M.get_current_method_lines()
+  local ts_utils = require('nvim-treesitter.ts_utils')
+  local node = ts_utils.get_node_at_cursor()
+  if not node then
+    print("No syntax node found at cursor.")
+    return nil
+  end
 
--- Preserve legacy function names for backward compatibility
-M.get_current_method_lines = jdbcmap.get_current_method_info
-M.extract_sql_from_method = jdbcmap.extract_sql
+  while node do
+    if node:type() == "method_declaration" then
+      local start_row, _, end_row, _ = node:range()
+      local lines = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
+      return {
+        start_line = start_row + 1,
+        end_line = end_row + 1,
+        lines = lines,
+      }
+    end
+    node = node:parent()
+  end
 
--- Export additional functions from new architecture
-M.parse_sql = jdbcmap.parse_sql
-M.analyze_parameters = jdbcmap.analyze_parameters
+  print("No method_declaration found above cursor.")
+  return nil
+end
 
 ---------------------------------------------------------------------
 -- STEP 2: Extract full SQL string (handle chained .append() calls)
