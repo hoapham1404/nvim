@@ -78,7 +78,7 @@ function M.extract_columns_from_sql(sql)
   local sql_keywords = {
     INSERT = true, INTO = true, VALUES = true, SELECT = true, FROM = true,
     UPDATE = true, SET = true, WHERE = true, AND = true, OR = true,
-    SYSDATE = true, NULL = true, append = true, toString = true
+    SYSDATE = true, NULL = true, append = true, toString = true, IS = true
   }
 
   -- Handle SELECT and INSERT differently
@@ -107,10 +107,11 @@ function M.extract_columns_from_sql(sql)
       end
     end
   elseif sql:match("UPDATE") then
-    -- For UPDATE: capture after SET
-    local col_section = sql:match("SET%s+(.-)%s+WHERE")
+    -- For UPDATE: capture after SET and before WHERE (if WHERE exists)
+    local col_section = sql:match("SET%s+(.-)%s+WHERE") or sql:match("SET%s+(.*)$")
     if col_section then
       col_section = col_section:gsub("[<>]", "") -- Remove < > markers
+      -- Match column = ? or column = value patterns
       for col in col_section:gmatch("([A-Z_][A-Z0-9_]*)%s*=") do
         if not sql_keywords[col] then
           table.insert(columns, col)
@@ -137,7 +138,7 @@ function M.extract_columns_from_sql(sql)
 end
 
 ---------------------------------------------------------------------
--- STEP 3.1: Extract WHERE clause columns for SELECT queries
+-- STEP 3.1: Extract WHERE clause columns for SELECT and UPDATE queries
 ---------------------------------------------------------------------
 function M.extract_where_columns_from_sql(sql)
   if not sql or sql == "" then
@@ -158,6 +159,42 @@ function M.extract_where_columns_from_sql(sql)
   end
 
   return where_columns
+end
+
+---------------------------------------------------------------------
+-- STEP 3.2: Extract SET clause parameter info for UPDATE statements
+---------------------------------------------------------------------
+function M.extract_set_param_info(sql, columns)
+  if not sql or sql == "" or not columns then
+    return {}
+  end
+
+  local set_info = {}
+
+  -- Extract the SET section (between SET and WHERE, or SET and end)
+  local set_section = sql:match("SET%s+(.-)%s+WHERE") or sql:match("SET%s+(.*)$")
+  if not set_section then
+    return set_info
+  end
+
+  -- For each column, determine if it uses a parameter or hardcoded value
+  for i, column in ipairs(columns) do
+    -- Look for this column in the SET section
+    local pattern = column .. "%s*=%s*([^,]+)"
+    local value_part = set_section:match(pattern)
+
+    if value_part then
+      value_part = value_part:gsub("^%s*(.-)%s*$", "%1") -- trim whitespace
+
+      if value_part == "?" then
+        set_info[i] = { column = column, type = "parameter" }
+      else
+        set_info[i] = { column = column, type = "hardcoded", value = value_part }
+      end
+    end
+  end
+
+  return set_info
 end
 
 ---------------------------------------------------------------------
@@ -249,6 +286,94 @@ function M.analyze_hardcoded_values(sql, columns)
 end
 
 ---------------------------------------------------------------------
+-- STEP 3.7: Enhanced INSERT VALUES analysis for complex cases
+---------------------------------------------------------------------
+function M.analyze_insert_values(sql, columns)
+  if not sql or sql == "" or not columns then
+    print("❌ analyze_insert_values: No SQL or columns provided")
+    return {}
+  end
+
+  local hardcoded_info = {}
+
+  -- Extract the VALUES section - try different patterns
+  local values_section = nil
+
+  -- Pattern 1: Standard VALUES (...) at end
+  values_section = sql:match("VALUES%s*%(%s*(.-)%s*%)%s*$")
+
+  if not values_section then
+    -- Pattern 2: VALUES (...) followed by anything
+    values_section = sql:match("VALUES%s*%(%s*(.-)%s*%)")
+  end
+
+  if not values_section then
+    print("❌ Could not extract VALUES section from SQL:")
+    print("    " .. sql)
+    return hardcoded_info
+  end
+
+  print("🔍 VALUES section found: '" .. values_section .. "'")
+
+  -- Parse the VALUES section manually for your specific case
+  -- Expected: . SEQSENDNO.NEXTVAL ,'3', ?, ?, ?, ?, ?, ?, SYSDATE, ?, SYSDATE, ?
+  local values = {}
+
+  -- Split by comma, but be careful about spaces and nested content
+  local current_value = ""
+  local i = 1
+
+  while i <= #values_section do
+    local char = values_section:sub(i, i)
+
+    if char == "," then
+      -- Found a comma - end current value
+      local trimmed = current_value:gsub("^%s*(.-)%s*$", "%1")
+      if trimmed ~= "" then
+        table.insert(values, trimmed)
+      end
+      current_value = ""
+    else
+      current_value = current_value .. char
+    end
+
+    i = i + 1
+  end
+
+  -- Add the last value
+  if current_value ~= "" then
+    local trimmed = current_value:gsub("^%s*(.-)%s*$", "%1")
+    if trimmed ~= "" then
+      table.insert(values, trimmed)
+    end
+  end
+
+  print("🔍 Parsed " .. #values .. " values:")
+  for i, val in ipairs(values) do
+    print(string.format("   %d: '%s'", i, val))
+  end
+
+  -- Map each value to its column
+  for i, value in ipairs(values) do
+    local column = columns[i]
+    if column then
+      if value ~= "?" then
+        -- This column uses a hardcoded value
+        hardcoded_info[i] = {
+          column = column,
+          value = value
+        }
+        print(string.format("   → Column %d (%s) = hardcoded '%s'", i, column, value))
+      else
+        print(string.format("   → Column %d (%s) = parameter (?)", i, column))
+      end
+    end
+  end
+
+  return hardcoded_info
+end
+
+---------------------------------------------------------------------
 -- STEP 4: Robust .param() extraction (handles 2 or 3 args)
 ---------------------------------------------------------------------
 function M.extract_params_from_method(method)
@@ -303,16 +428,30 @@ function M.map_columns_and_params()
   local params = M.extract_params_from_method(method)
   local placeholder_count = M.count_placeholders(sql)
 
-  -- Handle SELECT queries differently
+  -- Handle different SQL types (prioritize INSERT over UPDATE since column names can contain "UPDATE")
+  local is_insert = sql:match("INSERT%s+INTO")
   local is_select = sql:match("SELECT")
+  local is_update = sql:match("UPDATE") and not is_insert
   local where_columns = {}
   local hardcoded_info = {}
+  local set_param_info = {}
 
   if is_select then
     where_columns = M.extract_where_columns_from_sql(sql)
     print("\n🔗 JDBC Parameter Mapping (SELECT Query):")
     print(string.format("📊 Summary: %d selected columns, %d WHERE parameters, %d placeholders (?), %d parameters",
       #columns, #where_columns, placeholder_count, #params))
+  elseif is_update then
+    where_columns = M.extract_where_columns_from_sql(sql)
+    set_param_info = M.extract_set_param_info(sql, columns)
+    print("\n🔗 JDBC Parameter Mapping (UPDATE Query):")
+    print(string.format("📊 Summary: %d SET columns, %d WHERE parameters, %d placeholders (?), %d parameters",
+      #columns, #where_columns, placeholder_count, #params))
+  elseif is_insert then
+    hardcoded_info = M.analyze_insert_values(sql, columns)
+    print("\n🔗 JDBC Parameter Mapping (INSERT Query):")
+    print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters",
+      #columns, placeholder_count, #params))
   else
     hardcoded_info = M.analyze_hardcoded_values(sql, columns)
     print("\n🔗 JDBC Parameter Mapping:")
@@ -348,8 +487,102 @@ function M.map_columns_and_params()
         print(string.format("%-4d %-25s %-45s %s", i, where_col, param, sqltype))
       end
     end
+  elseif is_update then
+    -- For UPDATE: Show SET and WHERE parameters separately
+    print("\n📝 SET Clause:")
+    print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
+    print(string.rep("-", 95))
+
+    local param_index = 1
+    for i, col in ipairs(columns) do
+      local param = ""
+      local sqltype = ""
+
+      if set_param_info[i] and set_param_info[i].type == "hardcoded" then
+        param = "🔒 " .. set_param_info[i].value .. " (hardcoded)"
+        sqltype = "(SQL constant)"
+      else
+        -- This column uses a parameter
+        if params[param_index] then
+          param = params[param_index].expr
+          sqltype = params[param_index].sqltype
+          param_index = param_index + 1
+        else
+          param = "(⚠️ missing param)"
+        end
+      end
+
+      print(string.format("%-4d %-25s %-45s %s", i, col, param, sqltype))
+    end
+
+    if #where_columns > 0 then
+      print("\n🔍 WHERE Clause Parameters:")
+      print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"))
+      print(string.rep("-", 95))
+
+      for i, where_col in ipairs(where_columns) do
+        local param = params[param_index] and params[param_index].expr or "(⚠️ missing param)"
+        local sqltype = params[param_index] and params[param_index].sqltype or ""
+        print(string.format("%-4d %-25s %-45s %s", i, where_col, param, sqltype))
+        param_index = param_index + 1
+      end
+    end
+
+    -- Show any extra parameters
+    while param_index <= #params do
+      local param = params[param_index]
+      print(string.format("%-4d %-25s %-45s %s", param_index - #columns - #where_columns, "(⚠️ extra param)", param.expr, param.sqltype))
+      param_index = param_index + 1
+    end
+
+  elseif is_insert then
+    -- For INSERT: Show column-to-value mapping
+    print("\n💾 INSERT Values Mapping:")
+    print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
+    print(string.rep("-", 95))
+
+    -- Map parameters to columns and placeholders
+    local param_index = 1
+    for i = 1, #columns do
+      local column_name = columns[i]
+      local param = ""
+      local sqltype = ""
+
+      if hardcoded_info[i] then
+        -- This column uses a hardcoded value
+        param = "🔒 " .. hardcoded_info[i].value .. " (hardcoded)"
+        sqltype = "(SQL constant)"
+      else
+        -- This column should use a parameter
+        if params[param_index] then
+          param = params[param_index].expr
+          sqltype = params[param_index].sqltype
+          param_index = param_index + 1
+        else
+          param = "(⚠️ missing param)"
+        end
+      end
+
+      print(string.format("%-4d %-25s %-45s %s", i, column_name, param, sqltype))
+    end
+
+    -- Show any extra parameters
+    while param_index <= #params do
+      local param = params[param_index]
+      print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params, "(⚠️ extra param)", param.expr, param.sqltype))
+      param_index = param_index + 1
+    end
+
+    -- Show hardcoded values summary
+    if next(hardcoded_info) then
+      print("\n🔒 Hardcoded Values Detected:")
+      for i, info in pairs(hardcoded_info) do
+        print(string.format("   • Column %d (%s): %s", i, info.column, info.value))
+      end
+    end
+
   else
-    -- For INSERT/UPDATE: Use existing logic
+    -- For other SQL types: Use existing logic
     print("\n" .. string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
     print(string.rep("-", 95))
 
