@@ -45,31 +45,43 @@ function M.extract_sql_from_method()
         -- Match .append() calls with content
         local append_content = line:match("%.append%s*%((.+)%)")
         if append_content then
-            -- Extract string literals (quoted content)
-            local has_string = false
-            for str_literal in append_content:gmatch('"([^"]*)"') do
-                if str_literal and #str_literal > 0 then
-                    table.insert(sql_parts, str_literal)
-                    has_string = true
+            -- Check for chained append pattern first
+            local chained_result = M.reconstruct_from_chained_appends(line)
+            if chained_result then
+                table.insert(sql_parts, chained_result)
+            else
+                -- Extract string literals (quoted content)
+                local has_string = false
+                for str_literal in append_content:gmatch('"([^"]*)"') do
+                    if str_literal and #str_literal > 0 then
+                        table.insert(sql_parts, str_literal)
+                        has_string = true
+                    end
                 end
-            end
 
-            -- If no string literals found, check for table name constants
-            -- Pattern: businessDBUser).append(".").append(CONSTANT_NAME).append(" ALIAS ")
-            if not has_string then
-                -- Look for constant variable names (uppercase identifiers)
-                -- These are typically table names like MSTDEVICE, TRNDEVJOINT, etc.
-                for constant in append_content:gmatch("([A-Z][A-Z0-9_]+)") do
-                    -- Filter out known Java keywords/classes
-                    if constant ~= "Types" and
+                -- If no string literals found, check for table name constants
+                if not has_string then
+                    -- Pattern 1: Direct constants like MSTDEVICE, TRNDEVJOINT
+                    local constant = append_content:match("([A-Z][A-Z0-9_]+)$")
+                    if constant and
+                       constant ~= "Types" and
                        constant ~= "VARCHAR" and
                        constant ~= "NUMERIC" and
                        constant ~= "INTEGER" and
-                       not constant:match("^businessDBUser") then
-                        -- This is likely a table name constant
-                        -- Since constant value equals constant name, we can use it directly
+                       not constant:match("businessDBUser") then
                         table.insert(sql_parts, constant)
-                        break -- Only take the first constant per append
+                    else
+                        -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
+                        local class_constant = append_content:match("TableNames%.([A-Z][A-Z0-9_]+)")
+                        if class_constant then
+                            table.insert(sql_parts, class_constant)
+                        else
+                            -- Pattern 3: Other class patterns like Const.SOMETHING
+                            local other_constant = append_content:match("[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
+                            if other_constant then
+                                table.insert(sql_parts, other_constant)
+                            end
+                        end
                     end
                 end
             end
@@ -86,6 +98,41 @@ function M.extract_sql_from_method()
 end
 
 ---------------------------------------------------------------------
+-- Helper: Reconstruct table name and alias from chained appends
+---------------------------------------------------------------------
+function M.reconstruct_from_chained_appends(line)
+    -- Pattern: businessDBUser).append(".").append(TableNames.TRNINSTDEVICE).append(" INS ,")
+    -- or: businessDBUser).append(".").append(MSTDEVICE).append(" DEV ,")
+
+    -- Check if this line has the chained pattern we're looking for
+    if not (line:find("businessDBUser") and line:find("%.append") and (line:find("TableNames%.") or line:find("%([A-Z][A-Z0-9_]+%)"))) then
+        return nil
+    end
+
+    local table_name = nil
+    local alias = nil
+
+    -- Extract table name from TableNames.CONSTANT or direct CONSTANT
+    table_name = line:match("TableNames%.([A-Z][A-Z0-9_]+)")
+    if not table_name then
+        -- Try direct constant pattern in append
+        table_name = line:match("%.append%(([A-Z][A-Z0-9_]+)%)")
+    end
+
+    -- Extract alias from the string literal part: " ALIAS ," or " ALIAS "
+    alias = line:match('%.append%("%s*([A-Z_][A-Z0-9_]*)%s*[,"]')
+
+    if table_name and alias then
+        -- Preserve comma if it exists in the original line
+        if line:find('",') or line:find('" ,') then
+            return table_name .. " " .. alias .. ","
+        else
+            return table_name .. " " .. alias
+        end
+    end
+
+    return nil
+end---------------------------------------------------------------------
 -- STEP 3: Extract column names based on SQL type
 ---------------------------------------------------------------------
 function M.extract_columns_from_sql(sql)
@@ -304,8 +351,78 @@ function M.extract_table_info(sql)
 
     print("🔍 FROM clause section: " .. from_section)
 
+    -- Check if it's comma-separated tables (old-style) or JOIN syntax
+    if from_section:find("JOIN") then
+        -- Modern JOIN syntax
+        M.parse_join_syntax(from_section, tables)
+    else
+        -- Comma-separated tables (old-style)
+        M.parse_comma_separated_tables(from_section, tables)
+    end
+
+    -- Show summary
+    print(string.format("✅ Found %d table(s) with aliases", vim.tbl_count(tables)))
+
+    return tables
+end
+
+---------------------------------------------------------------------
+-- Helper: Parse comma-separated table list
+---------------------------------------------------------------------
+function M.parse_comma_separated_tables(from_section, tables)
+    print("🔍 Parsing comma-separated tables from: " .. from_section)
+
+    -- First try to split by commas
+    local table_specs = {}
+
+    if from_section:find(",") then
+        -- Has commas - split normally
+        for table_spec in from_section:gmatch("([^,]+)") do
+            table_spec = table_spec:gsub("^%s*(.-)%s*$", "%1") -- trim
+            if table_spec and table_spec ~= "" then
+                table.insert(table_specs, table_spec)
+            end
+        end
+    else
+        -- No commas - might be space-separated like "TRNINSTDEVICE INS TRNUSER CUS"
+        -- Use a more sophisticated approach to identify table patterns
+        local remaining = from_section
+        while remaining and remaining ~= "" do
+            -- Pattern: TABLE_NAME ALIAS (followed by another TABLE_NAME or end)
+            local table_name, alias, rest = remaining:match("^%s*([A-Z_][A-Z0-9_]+)%s+([A-Z_][A-Z0-9_]+)%s*(.*)$")
+            if table_name and alias then
+                table.insert(table_specs, table_name .. " " .. alias)
+                remaining = rest
+            else
+                break
+            end
+        end
+    end
+
+    -- Parse each table specification
+    for _, table_spec in ipairs(table_specs) do
+        print("   Parsing table spec: '" .. table_spec .. "'")
+
+        -- Pattern: [schema.]TABLE_NAME ALIAS
+        local table_name, alias = table_spec:match("([A-Z_][A-Z0-9_]+)%s+([A-Z_][A-Z0-9_]+)")
+        if table_name and alias then
+            tables[alias] = {
+                table_name = table_name,
+                alias = alias,
+                type = "table"
+            }
+            print(string.format("   → Table: %s (alias: %s)", table_name, alias))
+        else
+            print("   → Failed to parse: " .. table_spec)
+        end
+    end
+end
+
+---------------------------------------------------------------------
+-- Helper: Parse JOIN-based syntax
+---------------------------------------------------------------------
+function M.parse_join_syntax(from_section, tables)
     -- Parse main table: [schema.]TABLE_NAME ALIAS
-    -- Pattern handles: "SCHEMA.MSTDEVICE MAIN_DEV" or just "MSTDEVICE MAIN_DEV"
     local main_table, main_alias = from_section:match("^%s*[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
     if main_table and main_alias then
         tables[main_alias] = {
@@ -317,7 +434,6 @@ function M.extract_table_info(sql)
     end
 
     -- Find all JOIN clauses
-    -- Handles: INNER JOIN, LEFT JOIN, LEFT OUTER JOIN, RIGHT JOIN, etc.
     for join_match in from_section:gmatch("(INNER JOIN.-)%s*ON") do
         local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
         if table_name and alias then
@@ -365,12 +481,9 @@ function M.extract_table_info(sql)
             print(string.format("   RIGHT JOIN: %s (alias: %s)", table_name, alias))
         end
     end
+end
 
-    -- Show summary
-    print(string.format("✅ Found %d table(s) with aliases", vim.tbl_count(tables)))
-
-    return tables
-end---------------------------------------------------------------------
+---------------------------------------------------------------------
 -- STEP 3.1: Extract WHERE clause columns for SELECT and UPDATE queries
 ---------------------------------------------------------------------
 function M.extract_where_columns_from_sql(sql)
