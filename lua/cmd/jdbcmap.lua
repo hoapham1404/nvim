@@ -42,13 +42,35 @@ function M.extract_sql_from_method()
     local sql_parts = {}
 
     for _, line in ipairs(method.lines) do
-        -- Match .append() calls with string literals only
+        -- Match .append() calls with content
         local append_content = line:match("%.append%s*%((.+)%)")
         if append_content then
-            -- Only extract actual string literals (quoted content)
+            -- Extract string literals (quoted content)
+            local has_string = false
             for str_literal in append_content:gmatch('"([^"]*)"') do
                 if str_literal and #str_literal > 0 then
                     table.insert(sql_parts, str_literal)
+                    has_string = true
+                end
+            end
+
+            -- If no string literals found, check for table name constants
+            -- Pattern: businessDBUser).append(".").append(CONSTANT_NAME).append(" ALIAS ")
+            if not has_string then
+                -- Look for constant variable names (uppercase identifiers)
+                -- These are typically table names like MSTDEVICE, TRNDEVJOINT, etc.
+                for constant in append_content:gmatch("([A-Z][A-Z0-9_]+)") do
+                    -- Filter out known Java keywords/classes
+                    if constant ~= "Types" and
+                       constant ~= "VARCHAR" and
+                       constant ~= "NUMERIC" and
+                       constant ~= "INTEGER" and
+                       not constant:match("^businessDBUser") then
+                        -- This is likely a table name constant
+                        -- Since constant value equals constant name, we can use it directly
+                        table.insert(sql_parts, constant)
+                        break -- Only take the first constant per append
+                    end
                 end
             end
         end
@@ -280,29 +302,75 @@ function M.extract_table_info(sql)
         return tables
     end
 
-    -- Parse main table and joins
-    -- This is a simplified parser - you might need to enhance it for complex cases
-    local current_pos = 1
-    local text = from_section
+    print("🔍 FROM clause section: " .. from_section)
 
-    -- Main table pattern: [schema.]TABLE_NAME [ALIAS]
-    local main_table = text:match("^%s*[^%s]+%.[^%s]+%s+([A-Z_][A-Z0-9_]*)")
-    if main_table then
-        tables[main_table] = { type = "main", alias = main_table }
+    -- Parse main table: [schema.]TABLE_NAME ALIAS
+    -- Pattern handles: "SCHEMA.MSTDEVICE MAIN_DEV" or just "MSTDEVICE MAIN_DEV"
+    local main_table, main_alias = from_section:match("^%s*[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+    if main_table and main_alias then
+        tables[main_alias] = {
+            table_name = main_table,
+            alias = main_alias,
+            type = "main"
+        }
+        print(string.format("   Main table: %s (alias: %s)", main_table, main_alias))
     end
 
-    -- Find JOIN clauses
-    for join_clause in text:gmatch("(INNER JOIN[^J]*|LEFT JOIN[^J]*|RIGHT JOIN[^J]*|FULL JOIN[^J]*|JOIN[^J]*)") do
-        local table_info = join_clause:match("[^%s]+%.[^%s]+%s+([A-Z_][A-Z0-9_]*)")
-        if table_info then
-            tables[table_info] = { type = "joined", alias = table_info }
+    -- Find all JOIN clauses
+    -- Handles: INNER JOIN, LEFT JOIN, LEFT OUTER JOIN, RIGHT JOIN, etc.
+    for join_match in from_section:gmatch("(INNER JOIN.-)%s*ON") do
+        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        if table_name and alias then
+            tables[alias] = {
+                table_name = table_name,
+                alias = alias,
+                type = "inner_join"
+            }
+            print(string.format("   INNER JOIN: %s (alias: %s)", table_name, alias))
         end
     end
 
-    return tables
-end
+    for join_match in from_section:gmatch("(LEFT%s+OUTER%s+JOIN.-)%s*ON") do
+        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        if table_name and alias then
+            tables[alias] = {
+                table_name = table_name,
+                alias = alias,
+                type = "left_outer_join"
+            }
+            print(string.format("   LEFT OUTER JOIN: %s (alias: %s)", table_name, alias))
+        end
+    end
 
----------------------------------------------------------------------
+    for join_match in from_section:gmatch("(LEFT%s+JOIN.-)%s*ON") do
+        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        if table_name and alias then
+            tables[alias] = {
+                table_name = table_name,
+                alias = alias,
+                type = "left_join"
+            }
+            print(string.format("   LEFT JOIN: %s (alias: %s)", table_name, alias))
+        end
+    end
+
+    for join_match in from_section:gmatch("(RIGHT%s+JOIN.-)%s*ON") do
+        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        if table_name and alias then
+            tables[alias] = {
+                table_name = table_name,
+                alias = alias,
+                type = "right_join"
+            }
+            print(string.format("   RIGHT JOIN: %s (alias: %s)", table_name, alias))
+        end
+    end
+
+    -- Show summary
+    print(string.format("✅ Found %d table(s) with aliases", vim.tbl_count(tables)))
+
+    return tables
+end---------------------------------------------------------------------
 -- STEP 3.1: Extract WHERE clause columns for SELECT and UPDATE queries
 ---------------------------------------------------------------------
 function M.extract_where_columns_from_sql(sql)
@@ -625,6 +693,16 @@ function M.map_columns_and_params()
         print(string.format(
             "📊 Summary: %d selected columns, %d WHERE parameters, %d placeholders (?), %d parameters", #columns,
             #where_columns, placeholder_count, #params))
+
+        -- Show table mapping
+        if next(table_info) then
+            print("\n📋 Table Aliases:")
+            print(string.format("%-20s %-20s %-15s", "Alias", "Table Name", "Join Type"))
+            print(string.rep("-", 60))
+            for alias, info in pairs(table_info) do
+                print(string.format("%-20s %-20s %-15s", alias, info.table_name or "?", info.type or "unknown"))
+            end
+        end
     elseif is_update then
         where_columns = M.extract_where_columns_from_sql(sql)
         set_param_info = M.extract_set_param_info(sql, columns)
