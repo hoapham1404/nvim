@@ -108,15 +108,10 @@ function M.extract_columns_from_sql(sql)
             end
         end
     elseif sql:match("SELECT") then
-        -- For SELECT: capture after SELECT and before FROM
+        -- For SELECT: use enhanced parsing for JOINs
         local col_section = sql:match("SELECT%s+(.-)%s+FROM")
         if col_section then
-            col_section = col_section:gsub("[<>]", "") -- Remove < > markers
-            for col in col_section:gmatch("([A-Z_][A-Z0-9_]*)") do
-                if not sql_keywords[col] then
-                    table.insert(columns, col)
-                end
-            end
+            columns = M.parse_select_columns(col_section)
         end
     elseif sql:match("UPDATE") then
         -- For UPDATE: capture after SET and before WHERE (if WHERE exists)
@@ -143,10 +138,168 @@ function M.extract_columns_from_sql(sql)
 
     print("✅ Found columns:")
     for i, c in ipairs(unique) do
-        print(string.format("%2d. %s", i, c))
+        if type(c) == "table" then
+            print(string.format("%2d. %s (from %s)", i, c.name, c.table_alias or "unknown"))
+        else
+            print(string.format("%2d. %s", i, c))
+        end
     end
 
     return unique
+end
+
+---------------------------------------------------------------------
+-- STEP 3.0: Enhanced SELECT column parsing for JOINs
+---------------------------------------------------------------------
+function M.parse_select_columns(col_section)
+    if not col_section then
+        return {}
+    end
+
+    local columns = {}
+    local sql_keywords = {
+        SELECT = true, FROM = true, WHERE = true, AND = true, OR = true,
+        SYSDATE = true, NULL = true, AS = true
+    }
+
+    -- Clean the section
+    col_section = col_section:gsub("[<>]", "") -- Remove < > markers
+    col_section = col_section:gsub(",%s*", ",") -- Normalize commas
+
+    -- Split by commas while respecting parentheses
+    local current_col = ""
+    local paren_depth = 0
+
+    for i = 1, #col_section do
+        local char = col_section:sub(i, i)
+
+        if char == "(" then
+            paren_depth = paren_depth + 1
+        elseif char == ")" then
+            paren_depth = paren_depth - 1
+        elseif char == "," and paren_depth == 0 then
+            -- Process current column
+            local parsed_col = M.parse_single_column(current_col)
+            if parsed_col then
+                table.insert(columns, parsed_col)
+            end
+            current_col = ""
+            goto continue
+        end
+
+        current_col = current_col .. char
+        ::continue::
+    end
+
+    -- Process the last column
+    if current_col ~= "" then
+        local parsed_col = M.parse_single_column(current_col)
+        if parsed_col then
+            table.insert(columns, parsed_col)
+        end
+    end
+
+    return columns
+end
+
+---------------------------------------------------------------------
+-- STEP 3.0.1: Parse individual column with table alias and AS clause
+---------------------------------------------------------------------
+function M.parse_single_column(col_text)
+    if not col_text or col_text == "" then
+        return nil
+    end
+
+    -- Trim whitespace
+    col_text = col_text:gsub("^%s*(.-)%s*$", "%1")
+
+    local sql_keywords = {
+        SELECT = true, FROM = true, WHERE = true, AND = true, OR = true,
+        SYSDATE = true, NULL = true, AS = true
+    }
+
+    -- Parse: [TABLE_ALIAS.]COLUMN_NAME [AS ALIAS_NAME]
+    local table_alias, column_name, as_alias = nil, nil, nil
+
+    -- Check for AS clause first
+    local main_part, as_part = col_text:match("^(.-)%s+AS%s+([A-Z_][A-Z0-9_]*)$")
+    if main_part and as_part then
+        col_text = main_part
+        as_alias = as_part
+    end
+
+    -- Check for table alias prefix
+    local prefix, col_name = col_text:match("^([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)$")
+    if prefix and col_name then
+        table_alias = prefix
+        column_name = col_name
+    else
+        -- No table prefix, just column name
+        column_name = col_text:match("^([A-Z_][A-Z0-9_]*)$")
+    end
+
+    -- Filter out SQL keywords
+    if not column_name or sql_keywords[column_name] then
+        return nil
+    end
+
+    -- Build full reference
+    local full_reference = ""
+    if table_alias then
+        full_reference = table_alias .. "." .. column_name
+    else
+        full_reference = column_name
+    end
+
+    return {
+        name = column_name,
+        table_alias = table_alias,
+        as_alias = as_alias,
+        full_reference = full_reference,
+        original_text = col_text .. (as_alias and (" AS " .. as_alias) or "")
+    }
+end
+
+---------------------------------------------------------------------
+-- STEP 3.0.2: Extract table information from FROM clause
+---------------------------------------------------------------------
+function M.extract_table_info(sql)
+    if not sql or sql == "" then
+        return {}
+    end
+
+    local tables = {}
+
+    -- Extract FROM clause (from FROM to WHERE/ORDER BY/GROUP BY)
+    local from_section = sql:match("FROM%s+(.-)%s+WHERE") or
+                        sql:match("FROM%s+(.-)%s+ORDER") or
+                        sql:match("FROM%s+(.-)%s+GROUP") or
+                        sql:match("FROM%s+(.*)$")
+
+    if not from_section then
+        return tables
+    end
+
+    -- Parse main table and joins
+    -- This is a simplified parser - you might need to enhance it for complex cases
+    local current_pos = 1
+    local text = from_section
+
+    -- Main table pattern: [schema.]TABLE_NAME [ALIAS]
+    local main_table = text:match("^%s*[^%s]+%.[^%s]+%s+([A-Z_][A-Z0-9_]*)")
+    if main_table then
+        tables[main_table] = { type = "main", alias = main_table }
+    end
+
+    -- Find JOIN clauses
+    for join_clause in text:gmatch("(INNER JOIN[^J]*|LEFT JOIN[^J]*|RIGHT JOIN[^J]*|FULL JOIN[^J]*|JOIN[^J]*)") do
+        local table_info = join_clause:match("[^%s]+%.[^%s]+%s+([A-Z_][A-Z0-9_]*)")
+        if table_info then
+            tables[table_info] = { type = "joined", alias = table_info }
+        end
+    end
+
+    return tables
 end
 
 ---------------------------------------------------------------------
@@ -467,7 +620,8 @@ function M.map_columns_and_params()
 
     if is_select then
         where_columns = M.extract_where_columns_from_sql(sql)
-        print("\n🔗 JDBC Parameter Mapping (SELECT Query):")
+        local table_info = M.extract_table_info(sql)
+        print("\n🔗 JDBC Parameter Mapping (SELECT Query with JOINs):")
         print(string.format(
             "📊 Summary: %d selected columns, %d WHERE parameters, %d placeholders (?), %d parameters", #columns,
             #where_columns, placeholder_count, #params))
@@ -497,12 +651,25 @@ function M.map_columns_and_params()
     end
 
     if is_select then
-        -- For SELECT: Show selected columns and WHERE parameters separately
+        -- For SELECT: Show selected columns with table information
         print("\n📋 Selected Columns (Output):")
-        print(string.format("%-4s %-30s", "#", "Column Name"))
-        print(string.rep("-", 40))
+        print(string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias", "AS Alias", "Full Reference"))
+        print(string.rep("-", 95))
+
         for i, col in ipairs(columns) do
-            print(string.format("%-4d %-30s", i, col))
+            local col_name, table_alias, as_alias, full_ref = "", "", "", ""
+
+            if type(col) == "table" then
+                col_name = col.name or col
+                table_alias = col.table_alias or ""
+                as_alias = col.as_alias or ""
+                full_ref = col.full_reference or col_name
+            else
+                col_name = col
+                full_ref = col_name
+            end
+
+            print(string.format("%-4d %-25s %-15s %-20s %-25s", i, col_name, table_alias, as_alias, full_ref))
         end
 
         if #where_columns > 0 or #params > 0 then
