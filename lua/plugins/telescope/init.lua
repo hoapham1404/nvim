@@ -1,3 +1,4 @@
+-- require ripgrep for better performance
 return {
 
     "nvim-telescope/telescope.nvim",
