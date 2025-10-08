@@ -1,4 +1,5 @@
 local append_pattern = "%.append%s*%((.+)%)"
+local floating_buffer = require('utils.floating_buffer')
 
 local M = {}
 
@@ -9,7 +10,7 @@ function M.get_current_method_lines()
     local ts_utils = require('nvim-treesitter.ts_utils')
     local node = ts_utils.get_node_at_cursor()
     if not node then
-        print("No syntax node found at cursor.")
+        -- No error display here, let calling function handle it
         return nil
     end
 
@@ -26,7 +27,7 @@ function M.get_current_method_lines()
         node = node:parent()
     end
 
-    print("No method_declaration found above cursor.")
+    -- No error display here, let calling function handle it
     return nil
 end
 
@@ -36,7 +37,7 @@ end
 function M.extract_sql_from_method()
     local method = M.get_current_method_lines()
     if not method then
-        print("No method found.")
+        -- No error display here, let calling function handle it
         return nil
     end
 
@@ -93,8 +94,9 @@ function M.extract_sql_from_method()
     local sql = table.concat(sql_parts, " ")
     sql = sql:gsub("%s+", " "):gsub("^%s*(.-)%s*$", "%1")
 
-    print("✅ Extracted SQL:")
-    print(sql)
+    -- Debug info (can be enabled if needed)
+    -- print("✅ Extracted SQL:")
+    -- print(sql)
 
     return sql
 end
@@ -140,7 +142,7 @@ end ---------------------------------------------------------------------
 ---------------------------------------------------------------------
 function M.extract_columns_from_sql(sql)
     if not sql or sql == "" then
-        print("❌ No SQL to parse.")
+        -- No error display here, let calling function handle it
         return {}
     end
 
@@ -208,14 +210,15 @@ function M.extract_columns_from_sql(sql)
         end
     end
 
-    print("✅ Found columns:")
-    for i, c in ipairs(unique) do
-        if type(c) == "table" then
-            print(string.format("%2d. %s (from %s)", i, c.name, c.table_alias or "unknown"))
-        else
-            print(string.format("%2d. %s", i, c))
-        end
-    end
+    -- Debug: Found columns (can be enabled if needed)
+    -- print("✅ Found columns:")
+    -- for i, c in ipairs(unique) do
+    --     if type(c) == "table" then
+    --         print(string.format("%2d. %s (from %s)", i, c.name, c.table_alias or "unknown"))
+    --     else
+    --         print(string.format("%2d. %s", i, c))
+    --     end
+    -- end
 
     return unique
 end
@@ -364,7 +367,7 @@ function M.extract_table_info(sql)
         return tables
     end
 
-    print("🔍 FROM clause section: " .. from_section)
+    -- Debug: print("🔍 FROM clause section: " .. from_section)
 
     -- Check if it's comma-separated tables (old-style) or JOIN syntax
     if from_section:find("JOIN") then
@@ -376,7 +379,7 @@ function M.extract_table_info(sql)
     end
 
     -- Show summary
-    print(string.format("✅ Found %d table(s) with aliases", vim.tbl_count(tables)))
+    -- Debug: print(string.format("✅ Found %d table(s) with aliases", vim.tbl_count(tables)))
 
     return tables
 end
@@ -576,7 +579,7 @@ end
 ---------------------------------------------------------------------
 function M.count_placeholders(sql)
     if not sql or sql == "" then
-        print("❌ No SQL to count placeholders.")
+        -- No error display here, let calling function handle it
         return 0
     end
 
@@ -599,7 +602,7 @@ function M.count_placeholders(sql)
         end
     end
 
-    print("✅ Found " .. count .. " parameter placeholders (?)")
+    -- Debug: print("✅ Found " .. count .. " parameter placeholders (?)")
     return count
 end
 
@@ -802,10 +805,13 @@ end
 function M.map_columns_and_params()
     local method = M.get_current_method_lines()
     if not method then
+        floating_buffer.show_message("❌ No Java method found at cursor position.", "JDBC Mapper Error")
         return
     end
+
     local sql = M.extract_sql_from_method()
     if not sql then
+        floating_buffer.show_message("❌ No SQL found in the current method.", "JDBC Mapper Error")
         return
     end
 
@@ -813,7 +819,7 @@ function M.map_columns_and_params()
     local params = M.extract_params_from_method(method)
     local placeholder_count = M.count_placeholders(sql)
 
-    -- Handle different SQL types (prioritize INSERT over UPDATE since column names can contain "UPDATE")
+    -- Handle different SQL types
     local is_insert = sql:match("INSERT%s+INTO")
     local is_select = sql:match("SELECT")
     local is_update = sql:match("UPDATE") and not is_insert
@@ -821,63 +827,54 @@ function M.map_columns_and_params()
     local hardcoded_info = {}
     local set_param_info = {}
 
+    -- Prepare sections for the report
+    local sections = {}
+
+    -- SQL Information Section
+    table.insert(sections, {
+        title = "📄 SQL Query",
+        content = { sql }
+    })
+
     if is_select then
         where_columns = M.extract_where_columns_from_sql(sql)
         local table_info = M.extract_table_info(sql)
-        print("\n🔗 JDBC Parameter Mapping (SELECT Query with JOINs):")
-        print(string.format(
-            "📊 Summary: %d selected columns, %d WHERE parameters, %d placeholders (?), %d parameters",
-            #columns,
-            #where_columns, placeholder_count, #params))
 
-        -- Show table mapping
+        -- Summary section
+        table.insert(sections, {
+            title = "📊 Summary (SELECT Query)",
+            content = {
+                string.format("Selected columns: %d", #columns),
+                string.format("WHERE parameters: %d", #where_columns),
+                string.format("Placeholders (?): %d", placeholder_count),
+                string.format("Java parameters: %d", #params)
+            }
+        })
+
+        -- Table aliases section
         if next(table_info) then
-            print("\n📋 Table Aliases:")
-            print(string.format("%-20s %-20s %-15s", "Alias", "Table Name", "Join Type"))
-            print(string.rep("-", 60))
+            local table_content = {
+                string.format("%-20s %-20s %-15s", "Alias", "Table Name", "Join Type"),
+                string.rep("─", 60)
+            }
             for alias, info in pairs(table_info) do
-                print(string.format("%-20s %-20s %-15s", alias, info.table_name or "?",
-                    info.type or "unknown"))
+                table.insert(table_content, string.format("%-20s %-20s %-15s",
+                    alias, info.table_name or "?", info.type or "unknown"))
             end
+            table.insert(sections, {
+                title = "� Table Aliases",
+                content = table_content
+            })
         end
-    elseif is_update then
-        where_columns = M.extract_where_columns_from_sql(sql)
-        set_param_info = M.extract_set_param_info(sql, columns)
-        print("\n🔗 JDBC Parameter Mapping (UPDATE Query):")
-        print(string.format(
-            "📊 Summary: %d SET columns, %d WHERE parameters, %d placeholders (?), %d parameters",
-            #columns, #where_columns, placeholder_count, #params))
-    elseif is_insert then
-        hardcoded_info = M.analyze_insert_values(sql, columns)
-        print("\n🔗 JDBC Parameter Mapping (INSERT Query):")
-        print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters", #columns,
-            placeholder_count,
-            #params))
-    else
-        hardcoded_info = M.analyze_hardcoded_values(sql, columns)
-        print("\n🔗 JDBC Parameter Mapping:")
-        print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters", #columns,
-            placeholder_count,
-            #params))
-    end
 
-    -- Show warning if mismatch
-    if placeholder_count ~= #params then
-        print("⚠️  WARNING: Parameter count (" .. #params .. ") doesn't match placeholder count (" ..
-            placeholder_count .. ")")
-        print("   This might indicate hardcoded values in SQL (like SYSDATE) or missing parameters.")
-    end
-
-    if is_select then
-        -- For SELECT: Show selected columns with table information
-        print("\n📋 Selected Columns (Output):")
-        print(string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias",
-            "AS Alias", "Full Reference"))
-        print(string.rep("-", 95))
+        -- Selected columns section
+        local col_content = {
+            string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias", "AS Alias", "Full Reference"),
+            string.rep("─", 95)
+        }
 
         for i, col in ipairs(columns) do
             local col_name, table_alias, as_alias, full_ref = "", "", "", ""
-
             if type(col) == "table" then
                 col_name = col.name or col
                 table_alias = col.table_alias or ""
@@ -887,31 +884,57 @@ function M.map_columns_and_params()
                 col_name = col
                 full_ref = col_name
             end
-
-            print(string.format("%-4d %-25s %-15s %-20s %-25s", i, col_name, table_alias, as_alias,
-                full_ref))
+            table.insert(col_content, string.format("%-4d %-25s %-15s %-20s %-25s",
+                i, col_name, table_alias, as_alias, full_ref))
         end
 
+        table.insert(sections, {
+            title = "📋 Selected Columns (Output)",
+            content = col_content
+        })
+
+        -- WHERE parameters section
         if #where_columns > 0 or #params > 0 then
-            print("\n🔍 WHERE Clause Parameters:")
-            print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression",
-                "SQL Type"))
-            print(string.rep("-", 95))
+            local where_content = {
+                string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"),
+                string.rep("─", 95)
+            }
 
             local max_len = math.max(#where_columns, #params)
             for i = 1, max_len do
                 local where_col = where_columns[i] or "(extra param)"
                 local param = params[i] and params[i].expr or "(missing param)"
                 local sqltype = params[i] and params[i].sqltype or ""
-                print(string.format("%-4d %-25s %-45s %s", i, where_col, param, sqltype))
+                table.insert(where_content, string.format("%-4d %-25s %-45s %s",
+                    i, where_col, param, sqltype))
             end
+
+            table.insert(sections, {
+                title = "🔍 WHERE Clause Parameters",
+                content = where_content
+            })
         end
+
     elseif is_update then
-        -- For UPDATE: Show SET and WHERE parameters separately
-        print("\n📝 SET Clause:")
-        print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
-            "SQL Type"))
-        print(string.rep("-", 95))
+        where_columns = M.extract_where_columns_from_sql(sql)
+        set_param_info = M.extract_set_param_info(sql, columns)
+
+        -- Summary section
+        table.insert(sections, {
+            title = "📊 Summary (UPDATE Query)",
+            content = {
+                string.format("SET columns: %d", #columns),
+                string.format("WHERE parameters: %d", #where_columns),
+                string.format("Placeholders (?): %d", placeholder_count),
+                string.format("Java parameters: %d", #params)
+            }
+        })
+
+        -- SET clause section
+        local set_content = {
+            string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"),
+            string.rep("─", 95)
+        }
 
         local param_index = 1
         for i, col in ipairs(columns) do
@@ -922,7 +945,6 @@ function M.map_columns_and_params()
                 param = "🔒 " .. set_param_info[i].value .. " (hardcoded)"
                 sqltype = "(SQL constant)"
             else
-                -- This column uses a parameter
                 if params[param_index] then
                     param = params[param_index].expr
                     sqltype = params[param_index].sqltype
@@ -931,41 +953,54 @@ function M.map_columns_and_params()
                     param = "(⚠️ missing param)"
                 end
             end
-
-            print(string.format("%-4d %-25s %-45s %s", i, col, param, sqltype))
+            table.insert(set_content, string.format("%-4d %-25s %-45s %s", i, col, param, sqltype))
         end
 
+        table.insert(sections, {
+            title = "📝 SET Clause",
+            content = set_content
+        })
+
+        -- WHERE clause section
         if #where_columns > 0 then
-            print("\n🔍 WHERE Clause Parameters:")
-            print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression",
-                "SQL Type"))
-            print(string.rep("-", 95))
+            local where_content = {
+                string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"),
+                string.rep("─", 95)
+            }
 
             for i, where_col in ipairs(where_columns) do
-                local param = params[param_index] and params[param_index].expr or
-                    "(⚠️ missing param)"
+                local param = params[param_index] and params[param_index].expr or "(⚠️ missing param)"
                 local sqltype = params[param_index] and params[param_index].sqltype or ""
-                print(string.format("%-4d %-25s %-45s %s", i, where_col, param, sqltype))
+                table.insert(where_content, string.format("%-4d %-25s %-45s %s",
+                    i, where_col, param, sqltype))
                 param_index = param_index + 1
             end
+
+            table.insert(sections, {
+                title = "🔍 WHERE Clause Parameters",
+                content = where_content
+            })
         end
 
-        -- Show any extra parameters
-        while param_index <= #params do
-            local param = params[param_index]
-            print(string.format("%-4d %-25s %-45s %s", param_index - #columns - #where_columns,
-                "(⚠️ extra param)",
-                param.expr, param.sqltype))
-            param_index = param_index + 1
-        end
     elseif is_insert then
-        -- For INSERT: Show column-to-value mapping
-        print("\n💾 INSERT Values Mapping:")
-        print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
-            "SQL Type"))
-        print(string.rep("-", 95))
+        hardcoded_info = M.analyze_insert_values(sql, columns)
 
-        -- Map parameters to columns and placeholders
+        -- Summary section
+        table.insert(sections, {
+            title = "📊 Summary (INSERT Query)",
+            content = {
+                string.format("Columns: %d", #columns),
+                string.format("Placeholders (?): %d", placeholder_count),
+                string.format("Java parameters: %d", #params)
+            }
+        })
+
+        -- INSERT values mapping section
+        local insert_content = {
+            string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"),
+            string.rep("─", 95)
+        }
+
         local param_index = 1
         for i = 1, #columns do
             local column_name = columns[i]
@@ -973,11 +1008,9 @@ function M.map_columns_and_params()
             local sqltype = ""
 
             if hardcoded_info[i] then
-                -- This column uses a hardcoded value
                 param = "🔒 " .. hardcoded_info[i].value .. " (hardcoded)"
                 sqltype = "(SQL constant)"
             else
-                -- This column should use a parameter
                 if params[param_index] then
                     param = params[param_index].expr
                     sqltype = params[param_index].sqltype
@@ -986,84 +1019,51 @@ function M.map_columns_and_params()
                     param = "(⚠️ missing param)"
                 end
             end
-
-            print(string.format("%-4d %-25s %-45s %s", i, column_name, param, sqltype))
+            table.insert(insert_content, string.format("%-4d %-25s %-45s %s",
+                i, column_name, param, sqltype))
         end
 
-        -- Show any extra parameters
-        while param_index <= #params do
-            local param = params[param_index]
-            print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params,
-                "(⚠️ extra param)",
-                param.expr, param.sqltype))
-            param_index = param_index + 1
-        end
+        table.insert(sections, {
+            title = "💾 INSERT Values Mapping",
+            content = insert_content
+        })
 
-        -- Show hardcoded values summary
+        -- Hardcoded values summary
         if next(hardcoded_info) then
-            print("\n🔒 Hardcoded Values Detected:")
+            local hardcoded_content = {}
             for i, info in pairs(hardcoded_info) do
-                print(string.format("   • Column %d (%s): %s", i, info.column, info.value))
+                table.insert(hardcoded_content, string.format("• Column %d (%s): %s",
+                    i, info.column, info.value))
             end
-        end
-    else
-        -- For other SQL types: Use existing logic
-        print("\n" ..
-            string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
-                "SQL Type"))
-        print(string.rep("-", 95))
-
-        -- Map parameters to columns and placeholders
-        local param_index = 1
-        for i = 1, #columns do
-            local column_name = columns[i]
-            local param = ""
-            local sqltype = ""
-
-            if hardcoded_info[i] then
-                -- This column uses a hardcoded value
-                param = "🔒 " .. hardcoded_info[i].value .. " (hardcoded)"
-                sqltype = "(SQL constant)"
-            else
-                -- This column should use a parameter
-                if params[param_index] then
-                    param = params[param_index].expr
-                    sqltype = params[param_index].sqltype
-                    param_index = param_index + 1
-                else
-                    param = "(⚠️ missing param)"
-                end
-            end
-
-            print(string.format("%-4d %-25s %-45s %s", i, column_name, param, sqltype))
-        end
-
-        -- Show any extra parameters
-        while param_index <= #params do
-            local param = params[param_index]
-            print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params,
-                "(⚠️ extra param)",
-                param.expr, param.sqltype))
-            param_index = param_index + 1
-        end
-
-        -- Show hardcoded values summary
-        if next(hardcoded_info) then
-            print("\n🔒 Hardcoded Values Detected:")
-            for i, info in pairs(hardcoded_info) do
-                print(string.format("   • Column %d (%s): %s", i, info.column, info.value))
-            end
-        end
-
-        -- Show placeholder count for reference
-        if placeholder_count ~= #columns then
-            print("\n📋 Placeholder Info:")
-            print(string.format("   • %d columns defined in SQL", #columns))
-            print(string.format("   • %d placeholders (?) in SQL", placeholder_count))
-            print(string.format("   • %d parameters in .param() calls", #params))
-            print(string.format("   • %d hardcoded values", #columns - placeholder_count))
+            table.insert(sections, {
+                title = "🔒 Hardcoded Values Detected",
+                content = hardcoded_content
+            })
         end
     end
+
+    -- Warnings section
+    if placeholder_count ~= #params then
+        table.insert(sections, {
+            title = "⚠️ Parameter Mismatch Warning",
+            content = {
+                string.format("Parameter count (%d) doesn't match placeholder count (%d)", #params, placeholder_count),
+                "This might indicate hardcoded values in SQL (like SYSDATE) or missing parameters."
+            }
+        })
+    end
+
+    -- Show the floating buffer with all information
+    local title = "🔗 JDBC Parameter Mapping"
+    if is_select then
+        title = title .. " (SELECT)"
+    elseif is_update then
+        title = title .. " (UPDATE)"
+    elseif is_insert then
+        title = title .. " (INSERT)"
+    end
+
+    floating_buffer.show_report(title, sections)
 end
 
 ---------------------------------------------------------------------
