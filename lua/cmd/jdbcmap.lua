@@ -1,4 +1,5 @@
--- ~/.config/nvim/lua/jdbcmap.lua
+local append_pattern = "%.append%s*%((.+)%)"
+
 local M = {}
 
 ---------------------------------------------------------------------
@@ -43,7 +44,7 @@ function M.extract_sql_from_method()
 
     for _, line in ipairs(method.lines) do
         -- Match .append() calls with content
-        local append_content = line:match("%.append%s*%((.+)%)")
+        local append_content = line:match(append_pattern)
         if append_content then
             -- Check for chained append pattern first
             local chained_result = M.reconstruct_from_chained_appends(line)
@@ -64,11 +65,11 @@ function M.extract_sql_from_method()
                     -- Pattern 1: Direct constants like MSTDEVICE, TRNDEVJOINT
                     local constant = append_content:match("([A-Z][A-Z0-9_]+)$")
                     if constant and
-                       constant ~= "Types" and
-                       constant ~= "VARCHAR" and
-                       constant ~= "NUMERIC" and
-                       constant ~= "INTEGER" and
-                       not constant:match("businessDBUser") then
+                        constant ~= "Types" and
+                        constant ~= "VARCHAR" and
+                        constant ~= "NUMERIC" and
+                        constant ~= "INTEGER" and
+                        not constant:match("businessDBUser") then
                         table.insert(sql_parts, constant)
                     else
                         -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
@@ -77,7 +78,8 @@ function M.extract_sql_from_method()
                             table.insert(sql_parts, class_constant)
                         else
                             -- Pattern 3: Other class patterns like Const.SOMETHING
-                            local other_constant = append_content:match("[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
+                            local other_constant = append_content:match(
+                                "[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
                             if other_constant then
                                 table.insert(sql_parts, other_constant)
                             end
@@ -132,7 +134,8 @@ function M.reconstruct_from_chained_appends(line)
     end
 
     return nil
-end---------------------------------------------------------------------
+end ---------------------------------------------------------------------
+
 -- STEP 3: Extract column names based on SQL type
 ---------------------------------------------------------------------
 function M.extract_columns_from_sql(sql)
@@ -227,12 +230,18 @@ function M.parse_select_columns(col_section)
 
     local columns = {}
     local sql_keywords = {
-        SELECT = true, FROM = true, WHERE = true, AND = true, OR = true,
-        SYSDATE = true, NULL = true, AS = true
+        SELECT = true,
+        FROM = true,
+        WHERE = true,
+        AND = true,
+        OR = true,
+        SYSDATE = true,
+        NULL = true,
+        AS = true
     }
 
     -- Clean the section
-    col_section = col_section:gsub("[<>]", "") -- Remove < > markers
+    col_section = col_section:gsub("[<>]", "")  -- Remove < > markers
     col_section = col_section:gsub(",%s*", ",") -- Normalize commas
 
     -- Split by commas while respecting parentheses
@@ -283,8 +292,14 @@ function M.parse_single_column(col_text)
     col_text = col_text:gsub("^%s*(.-)%s*$", "%1")
 
     local sql_keywords = {
-        SELECT = true, FROM = true, WHERE = true, AND = true, OR = true,
-        SYSDATE = true, NULL = true, AS = true
+        SELECT = true,
+        FROM = true,
+        WHERE = true,
+        AND = true,
+        OR = true,
+        SYSDATE = true,
+        NULL = true,
+        AS = true
     }
 
     -- Parse: [TABLE_ALIAS.]COLUMN_NAME [AS ALIAS_NAME]
@@ -341,9 +356,9 @@ function M.extract_table_info(sql)
 
     -- Extract FROM clause (from FROM to WHERE/ORDER BY/GROUP BY)
     local from_section = sql:match("FROM%s+(.-)%s+WHERE") or
-                        sql:match("FROM%s+(.-)%s+ORDER") or
-                        sql:match("FROM%s+(.-)%s+GROUP") or
-                        sql:match("FROM%s+(.*)$")
+        sql:match("FROM%s+(.-)%s+ORDER") or
+        sql:match("FROM%s+(.-)%s+GROUP") or
+        sql:match("FROM%s+(.*)$")
 
     if not from_section then
         return tables
@@ -389,7 +404,8 @@ function M.parse_comma_separated_tables(from_section, tables)
         local remaining = from_section
         while remaining and remaining ~= "" do
             -- Pattern: TABLE_NAME ALIAS (followed by another TABLE_NAME or end)
-            local table_name, alias, rest = remaining:match("^%s*([A-Z_][A-Z0-9_]+)%s+([A-Z_][A-Z0-9_]+)%s*(.*)$")
+            local table_name, alias, rest = remaining:match(
+                "^%s*([A-Z_][A-Z0-9_]+)%s+([A-Z_][A-Z0-9_]+)%s*(.*)$")
             if table_name and alias then
                 table.insert(table_specs, table_name .. " " .. alias)
                 remaining = rest
@@ -423,7 +439,8 @@ end
 ---------------------------------------------------------------------
 function M.parse_join_syntax(from_section, tables)
     -- Parse main table: [schema.]TABLE_NAME ALIAS
-    local main_table, main_alias = from_section:match("^%s*[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+    local main_table, main_alias = from_section:match(
+        "^%s*[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
     if main_table and main_alias then
         tables[main_alias] = {
             table_name = main_table,
@@ -435,7 +452,8 @@ function M.parse_join_syntax(from_section, tables)
 
     -- Find all JOIN clauses
     for join_match in from_section:gmatch("(INNER JOIN.-)%s*ON") do
-        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        local table_name, alias = join_match:match(
+            "[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
         if table_name and alias then
             tables[alias] = {
                 table_name = table_name,
@@ -447,7 +465,8 @@ function M.parse_join_syntax(from_section, tables)
     end
 
     for join_match in from_section:gmatch("(LEFT%s+OUTER%s+JOIN.-)%s*ON") do
-        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        local table_name, alias = join_match:match(
+            "[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
         if table_name and alias then
             tables[alias] = {
                 table_name = table_name,
@@ -459,7 +478,8 @@ function M.parse_join_syntax(from_section, tables)
     end
 
     for join_match in from_section:gmatch("(LEFT%s+JOIN.-)%s*ON") do
-        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        local table_name, alias = join_match:match(
+            "[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
         if table_name and alias then
             tables[alias] = {
                 table_name = table_name,
@@ -471,7 +491,8 @@ function M.parse_join_syntax(from_section, tables)
     end
 
     for join_match in from_section:gmatch("(RIGHT%s+JOIN.-)%s*ON") do
-        local table_name, alias = join_match:match("[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+        local table_name, alias = join_match:match(
+            "[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
         if table_name and alias then
             tables[alias] = {
                 table_name = table_name,
@@ -744,7 +765,8 @@ function M.extract_params_from_method(method)
     for _, line in ipairs(lines) do
         -- Match 3-argument form: .param(idx++, <expr>, Types.SOMETHING)
         -- Allow nested parentheses, dots, and method calls in <expr>
-        local idx_part, expr, sqltype = line:match("%.param%s*%(%s*([^,]+),%s*([^,]+),%s*Types%.([A-Z_]+)")
+        local idx_part, expr, sqltype = line:match(
+            "%.param%s*%(%s*([^,]+),%s*([^,]+),%s*Types%.([A-Z_]+)")
         if idx_part and expr and sqltype then
             -- Clean up the expression (remove extra whitespace)
             expr = expr:gsub("^%s*(.-)%s*$", "%1")
@@ -804,7 +826,8 @@ function M.map_columns_and_params()
         local table_info = M.extract_table_info(sql)
         print("\n🔗 JDBC Parameter Mapping (SELECT Query with JOINs):")
         print(string.format(
-            "📊 Summary: %d selected columns, %d WHERE parameters, %d placeholders (?), %d parameters", #columns,
+            "📊 Summary: %d selected columns, %d WHERE parameters, %d placeholders (?), %d parameters",
+            #columns,
             #where_columns, placeholder_count, #params))
 
         -- Show table mapping
@@ -813,38 +836,43 @@ function M.map_columns_and_params()
             print(string.format("%-20s %-20s %-15s", "Alias", "Table Name", "Join Type"))
             print(string.rep("-", 60))
             for alias, info in pairs(table_info) do
-                print(string.format("%-20s %-20s %-15s", alias, info.table_name or "?", info.type or "unknown"))
+                print(string.format("%-20s %-20s %-15s", alias, info.table_name or "?",
+                    info.type or "unknown"))
             end
         end
     elseif is_update then
         where_columns = M.extract_where_columns_from_sql(sql)
         set_param_info = M.extract_set_param_info(sql, columns)
         print("\n🔗 JDBC Parameter Mapping (UPDATE Query):")
-        print(string.format("📊 Summary: %d SET columns, %d WHERE parameters, %d placeholders (?), %d parameters",
+        print(string.format(
+            "📊 Summary: %d SET columns, %d WHERE parameters, %d placeholders (?), %d parameters",
             #columns, #where_columns, placeholder_count, #params))
     elseif is_insert then
         hardcoded_info = M.analyze_insert_values(sql, columns)
         print("\n🔗 JDBC Parameter Mapping (INSERT Query):")
-        print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters", #columns, placeholder_count,
+        print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters", #columns,
+            placeholder_count,
             #params))
     else
         hardcoded_info = M.analyze_hardcoded_values(sql, columns)
         print("\n🔗 JDBC Parameter Mapping:")
-        print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters", #columns, placeholder_count,
+        print(string.format("📊 Summary: %d columns, %d placeholders (?), %d parameters", #columns,
+            placeholder_count,
             #params))
     end
 
     -- Show warning if mismatch
     if placeholder_count ~= #params then
         print("⚠️  WARNING: Parameter count (" .. #params .. ") doesn't match placeholder count (" ..
-                  placeholder_count .. ")")
+            placeholder_count .. ")")
         print("   This might indicate hardcoded values in SQL (like SYSDATE) or missing parameters.")
     end
 
     if is_select then
         -- For SELECT: Show selected columns with table information
         print("\n📋 Selected Columns (Output):")
-        print(string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias", "AS Alias", "Full Reference"))
+        print(string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias",
+            "AS Alias", "Full Reference"))
         print(string.rep("-", 95))
 
         for i, col in ipairs(columns) do
@@ -860,12 +888,14 @@ function M.map_columns_and_params()
                 full_ref = col_name
             end
 
-            print(string.format("%-4d %-25s %-15s %-20s %-25s", i, col_name, table_alias, as_alias, full_ref))
+            print(string.format("%-4d %-25s %-15s %-20s %-25s", i, col_name, table_alias, as_alias,
+                full_ref))
         end
 
         if #where_columns > 0 or #params > 0 then
             print("\n🔍 WHERE Clause Parameters:")
-            print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"))
+            print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression",
+                "SQL Type"))
             print(string.rep("-", 95))
 
             local max_len = math.max(#where_columns, #params)
@@ -879,7 +909,8 @@ function M.map_columns_and_params()
     elseif is_update then
         -- For UPDATE: Show SET and WHERE parameters separately
         print("\n📝 SET Clause:")
-        print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
+        print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
+            "SQL Type"))
         print(string.rep("-", 95))
 
         local param_index = 1
@@ -906,11 +937,13 @@ function M.map_columns_and_params()
 
         if #where_columns > 0 then
             print("\n🔍 WHERE Clause Parameters:")
-            print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"))
+            print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression",
+                "SQL Type"))
             print(string.rep("-", 95))
 
             for i, where_col in ipairs(where_columns) do
-                local param = params[param_index] and params[param_index].expr or "(⚠️ missing param)"
+                local param = params[param_index] and params[param_index].expr or
+                    "(⚠️ missing param)"
                 local sqltype = params[param_index] and params[param_index].sqltype or ""
                 print(string.format("%-4d %-25s %-45s %s", i, where_col, param, sqltype))
                 param_index = param_index + 1
@@ -920,15 +953,16 @@ function M.map_columns_and_params()
         -- Show any extra parameters
         while param_index <= #params do
             local param = params[param_index]
-            print(string.format("%-4d %-25s %-45s %s", param_index - #columns - #where_columns, "(⚠️ extra param)",
+            print(string.format("%-4d %-25s %-45s %s", param_index - #columns - #where_columns,
+                "(⚠️ extra param)",
                 param.expr, param.sqltype))
             param_index = param_index + 1
         end
-
     elseif is_insert then
         -- For INSERT: Show column-to-value mapping
         print("\n💾 INSERT Values Mapping:")
-        print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
+        print(string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
+            "SQL Type"))
         print(string.rep("-", 95))
 
         -- Map parameters to columns and placeholders
@@ -959,7 +993,8 @@ function M.map_columns_and_params()
         -- Show any extra parameters
         while param_index <= #params do
             local param = params[param_index]
-            print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params, "(⚠️ extra param)",
+            print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params,
+                "(⚠️ extra param)",
                 param.expr, param.sqltype))
             param_index = param_index + 1
         end
@@ -971,10 +1006,11 @@ function M.map_columns_and_params()
                 print(string.format("   • Column %d (%s): %s", i, info.column, info.value))
             end
         end
-
     else
         -- For other SQL types: Use existing logic
-        print("\n" .. string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"))
+        print("\n" ..
+            string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
+                "SQL Type"))
         print(string.rep("-", 95))
 
         -- Map parameters to columns and placeholders
@@ -1005,7 +1041,8 @@ function M.map_columns_and_params()
         -- Show any extra parameters
         while param_index <= #params do
             local param = params[param_index]
-            print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params, "(⚠️ extra param)",
+            print(string.format("%-4d %-25s %-45s %s", #columns + param_index - #params,
+                "(⚠️ extra param)",
                 param.expr, param.sqltype))
             param_index = param_index + 1
         end

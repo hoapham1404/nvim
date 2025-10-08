@@ -67,24 +67,29 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
         -- Common LSP bindings
         if filetype == "cs" then
-            vim.keymap.set("n", "gd", require("omnisharp_extended").telescope_lsp_definition, { noremap = true })
+            vim.keymap.set("n", "gd", require("omnisharp_extended").telescope_lsp_definition,
+                { noremap = true })
             vim.keymap.set(
                 "n",
                 "gr",
-                function() require("omnisharp_extended").telescope_lsp_references(require("telescope.themes").get_ivy({ excludeDefinition = true })) end,
+                function() require("omnisharp_extended").telescope_lsp_references(require(
+                    "telescope.themes").get_ivy({ excludeDefinition = true })) end,
                 { noremap = true }
             )
         else
             vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-            vim.keymap.set("n", "gr", require("telescope.builtin").lsp_references, vim.tbl_extend("force", opts, { desc = "LSP References" }))
+            vim.keymap.set("n", "gr", require("telescope.builtin").lsp_references,
+                vim.tbl_extend("force", opts, { desc = "LSP References" }))
         end
         vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
         vim.keymap.set("n", "go", vim.lsp.buf.type_definition, opts)
         vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
         vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
         vim.keymap.set("n", "gs", vim.lsp.buf.signature_help, opts)
-        vim.keymap.set({ "n", "v" }, "<A-.>", vim.lsp.buf.code_action, vim.tbl_extend("force", opts, { desc = "Lsp Code Action" }))
-        vim.keymap.set("n", "<leader>fo", function() vim.lsp.buf.format({ async = false, timeout_ms = 5000 }) end )
+        vim.keymap.set({ "n", "v" }, "<A-.>", vim.lsp.buf.code_action,
+            vim.tbl_extend("force", opts, { desc = "Lsp Code Action" }))
+        vim.keymap.set("n", "<leader>fo",
+            function() vim.lsp.buf.format({ async = false, timeout_ms = 5000 }) end)
         -- Diagnostics
         vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, opts)
 
@@ -105,9 +110,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
 
 -- Support Blazor source code (.razor)
-vim.api.nvim_create_autocmd({"BufRead", "BufNewFile"}, {
-  pattern = "*.razor",
-  callback = function()
-    vim.bo.filetype = "razor"
-  end,
+vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+    pattern = "*.razor",
+    callback = function()
+        vim.bo.filetype = "razor"
+    end,
 })

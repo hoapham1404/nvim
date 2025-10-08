@@ -3,6 +3,7 @@ vim.lsp.enable({
     "ts_ls",
     "omnisharp",
     "html",
+    "luals"
 })
 
 vim.diagnostic.config({
