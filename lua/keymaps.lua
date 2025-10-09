@@ -40,6 +40,9 @@ keymap.set("n", "<leader>Y", [["+Y]], { desc = "Yank to system clipboard" })
 keymap.set("x", "<leader>p", [["_dP]], { desc = "Paste without yanking" })
 keymap.set({ "n", "v" }, "<leader>d", [["_d]], { desc = "Delete without yanking" })
 
+-- Paste over selection without yanking the deleted text
+keymap.set("x", "p", [["_dP]], { desc = "Paste without yanking deleted text" })
+
 keymap.set("n", "<leader>bd", "<cmd>bd<CR>", { desc = "Delete buffer" })
 
 keymap.set("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
