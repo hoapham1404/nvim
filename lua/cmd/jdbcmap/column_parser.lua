@@ -1,9 +1,34 @@
--- Column Parser Module
--- Handles extracting and parsing columns from SELECT, INSERT, and UPDATE statements
+--- Column Parser Module
+--- Handles extracting and parsing columns from SELECT, INSERT, and UPDATE statements
+---
+--- This module exposes helpers to extract column names and metadata from
+--- common SQL snippets embedded in application strings. It is intentionally
+--- conservative and focuses on simple/structured SQL (e.g. UPPERCASE keywords).
+---
+--- Type notes:
+--- - For SELECT parsing, functions return rich `ParsedColumn` items with
+---   table/alias information.
+--- - For INSERT/UPDATE parsing, functions return plain string column names.
+--- - Some higher-level helpers can return either representation; see
+---   `ColumnList` alias below.
+---
+---@module '@jdbcmap/column_parser'
+---
+---@class ParsedColumn
+---@field name string                 -- Raw column name
+---@field table_alias? string         -- Optional table/CTE alias prefix
+---@field as_alias? string            -- Optional alias from AS clause
+---@field full_reference string       -- Either "alias.NAME" or "NAME"
+---@field original_text string        -- Original column text (normalized)
+---
+---@alias ColumnList ParsedColumn[]|string[]
+---@alias SetParamInfo table<integer, { column: string, type: 'parameter'|'hardcoded', value?: string }>
+---@alias InsertHardcodedInfo table<integer, { column: string, value: string }>
 
 local M = {}
 
 -- Common SQL keywords to filter out
+---@type table<string, boolean>
 local SQL_KEYWORDS = {
     INSERT = true,
     INTO = true,
@@ -26,6 +51,13 @@ local SQL_KEYWORDS = {
 ---------------------------------------------------------------------
 -- Extract column names based on SQL type
 ---------------------------------------------------------------------
+--- Extract column-like tokens from a SQL string, inferring by statement type.
+---
+--- For SELECT, returns a list of `ParsedColumn` entries.
+--- For INSERT/UPDATE, returns a list of raw column name strings.
+---
+---@param sql string|nil
+---@return ColumnList
 function M.extract_columns_from_sql(sql)
     if not sql or sql == "" then
         return {}
@@ -49,6 +81,11 @@ end
 ---------------------------------------------------------------------
 -- Extract columns from INSERT statement
 ---------------------------------------------------------------------
+--- Extract the explicit column list from an INSERT statement.
+--- Example: INSERT INTO T (A,B,C) VALUES (?,?,?) -> {"A", "B", "C"}
+---
+---@param sql string
+---@return string[]
 function M.extract_insert_columns(sql)
     local columns = {}
 
@@ -71,6 +108,11 @@ end
 ---------------------------------------------------------------------
 -- Extract columns from SELECT statement
 ---------------------------------------------------------------------
+--- Extract rich column metadata from a SELECT statement's projection list.
+--- Returns entries with alias information when available.
+---
+---@param sql string
+---@return ParsedColumn[]
 function M.extract_select_columns(sql)
     -- For SELECT: use enhanced parsing for JOINs
     local col_section = sql:match("SELECT%s+(.-)%s+FROM")
@@ -83,6 +125,11 @@ end
 ---------------------------------------------------------------------
 -- Extract columns from UPDATE statement
 ---------------------------------------------------------------------
+--- Extract column names from an UPDATE statement's SET clause.
+--- Example: UPDATE T SET A=?, B=1 WHERE C=? -> {"A", "B"}
+---
+---@param sql string
+---@return string[]
 function M.extract_update_columns(sql)
     local columns = {}
 
@@ -104,6 +151,12 @@ end
 ---------------------------------------------------------------------
 -- Enhanced SELECT column parsing for JOINs
 ---------------------------------------------------------------------
+--- Parse a SELECT projection list into `ParsedColumn` entries.
+--- Handles commas, parentheses depth (e.g., function calls), table prefixes,
+--- and optional AS aliases.
+---
+---@param col_section string|nil
+---@return ParsedColumn[]
 function M.parse_select_columns(col_section)
     if not col_section then
         return {}
@@ -154,6 +207,12 @@ end
 ---------------------------------------------------------------------
 -- Parse individual column with table alias and AS clause
 ---------------------------------------------------------------------
+--- Parse a single SELECT column text into a `ParsedColumn` record.
+--- Accepts forms like "ALIAS.COL AS NAME", "COL AS NAME", or "ALIAS.COL".
+--- Returns nil for SQL keywords or unparsable tokens.
+---
+---@param col_text string|nil
+---@return ParsedColumn|nil
 function M.parse_single_column(col_text)
     if not col_text or col_text == "" then
         return nil
@@ -207,6 +266,11 @@ end
 ---------------------------------------------------------------------
 -- Extract WHERE clause columns for SELECT and UPDATE queries
 ---------------------------------------------------------------------
+--- Extract simple equality-comparison columns from a WHERE clause.
+--- Matches patterns like "NAME = ?" and returns {"NAME", ...}.
+---
+---@param sql string|nil
+---@return string[]
 function M.extract_where_columns(sql)
     if not sql or sql == "" then
         return {}
@@ -231,6 +295,13 @@ end
 ---------------------------------------------------------------------
 -- Extract SET clause parameter info for UPDATE statements
 ---------------------------------------------------------------------
+--- Inspect the UPDATE SET list to determine whether each column uses a
+--- parameter placeholder or a hardcoded value.
+--- The `columns` parameter should be the result of `extract_update_columns`.
+---
+---@param sql string|nil
+---@param columns string[]|nil
+---@return SetParamInfo
 function M.extract_set_param_info(sql, columns)
     if not sql or sql == "" or not columns then
         return {}
@@ -274,6 +345,13 @@ end
 ---------------------------------------------------------------------
 -- Analyze INSERT VALUES section to find hardcoded values
 ---------------------------------------------------------------------
+--- For an INSERT statement, match each VALUES item to its corresponding
+--- column and record hardcoded (non-parameter) values.
+--- The `columns` parameter should be the result of `extract_insert_columns`.
+---
+---@param sql string|nil
+---@param columns string[]|nil
+---@return InsertHardcodedInfo
 function M.analyze_insert_values(sql, columns)
     if not sql or sql == "" or not columns then
         print("❌ analyze_insert_values: No SQL or columns provided")
@@ -332,6 +410,14 @@ end
 ---------------------------------------------------------------------
 -- Parse VALUES section into individual values
 ---------------------------------------------------------------------
+--- Split a VALUES section (contents inside parentheses) into raw string items.
+--- Example: "?, SYSDATE, 1" -> {"?", "SYSDATE", "1"}
+---
+--- Note: This is a shallow splitter that does not handle quoted commas or
+--- nested parentheses within values.
+---
+---@param values_section string
+---@return string[]
 function M.parse_values_section(values_section)
     local values = {}
     local current_value = ""
@@ -368,6 +454,11 @@ end
 ---------------------------------------------------------------------
 -- Deduplicate column names (keep first appearance)
 ---------------------------------------------------------------------
+--- Remove duplicates while preserving first occurrence.
+--- Accepts either raw column name strings or `ParsedColumn` records.
+---
+---@param columns ColumnList
+---@return ColumnList
 function M.deduplicate_columns(columns)
     local unique, seen = {}, {}
     for _, col in ipairs(columns) do

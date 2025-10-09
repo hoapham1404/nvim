@@ -1,10 +1,21 @@
+---@module '@jdbcmap/param_extractor'
+
+---@class JdbcmapMethod
+---@field lines string[]             -- Collected method lines to scan
+---@field start_line? integer        -- Optional: starting line number in source
+---@field end_line? integer          -- Optional: ending line number in source
+
+---@class JdbcmapParam
+---@field expr string                -- The parameter expression extracted
+---@field sqltype string             -- Java SQL type token (e.g., "Types.VARCHAR") or empty string
+
 ---@class ParamExtractor
----@field extract_params_from_method fun(method: table): table
+---@field extract_params_from_method fun(method: JdbcmapMethod|string[]): JdbcmapParam[]
 local M = {}
 
 --- Robust .param() extraction (handles 2 or 3 args)
---- @param method table Method lines or {start_line, end_line, lines}
---- @return table List of {expr: string, sqltype: string}
+--- @param method JdbcmapMethod|string[] Method lines or an object with a `lines` field
+--- @return JdbcmapParam[] params List of extracted params
 function M.extract_params_from_method(method)
     local lines = method
     if type(method) == "table" and method.lines then
@@ -15,6 +26,7 @@ function M.extract_params_from_method(method)
         return {}
     end
 
+    ---@type JdbcmapParam[]
     local params = {}
 
     for _, line in ipairs(lines) do

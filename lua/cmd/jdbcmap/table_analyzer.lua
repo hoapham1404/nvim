@@ -1,5 +1,6 @@
 -- Table Analyzer Module
 -- Handles FROM clause parsing and table alias extraction
+---@module '@jdbcmap/table_analyzer'
 
 local M = {}
 

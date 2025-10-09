@@ -1,3 +1,5 @@
+---@module '@jdbcmap/report_generator'
+
 ---@class ReportGenerator
 ---@field generate_report fun(mapping_data: table, warnings: table): table
 ---@field create_sql_section fun(mapping_data: table): table
@@ -158,12 +160,13 @@ function M.create_select_columns_section(columns)
     for i, col in ipairs(columns) do
         local col_name, table_alias, as_alias, full_ref = "", "", "", ""
         if type(col) == "table" then
-            col_name = col.name or col
-            table_alias = col.table_alias or ""
-            as_alias = col.as_alias or ""
-            full_ref = col.full_reference or col_name
+            -- Ensure we never assign a table to a string-typed local
+            col_name = type(col.name) == "string" and col.name or ""
+            table_alias = type(col.table_alias) == "string" and col.table_alias or ""
+            as_alias = type(col.as_alias) == "string" and col.as_alias or ""
+            full_ref = type(col.full_reference) == "string" and col.full_reference or (col_name ~= "" and col_name or "")
         else
-            col_name = col
+            col_name = tostring(col)
             full_ref = col_name
         end
         table.insert(content, string.format("%-4d %-25s %-15s %-20s %-25s",

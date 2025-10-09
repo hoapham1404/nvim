@@ -1,3 +1,5 @@
+---@module '@jdbcmap/sql_extractor'
+
 ---@class SQLExtractor
 ---@field get_current_method_lines fun(): (table|nil)
 ---@field extract_sql_from_method fun(method: table): (string|nil)

@@ -1,5 +1,6 @@
 -- Mapper Module
 -- Orchestrates the mapping between SQL columns and Java parameters
+---@module '@jdbcmap/mapper'
 
 local sql_extractor = require('cmd.jdbcmap.sql_extractor')
 local column_parser = require('cmd.jdbcmap.column_parser')
