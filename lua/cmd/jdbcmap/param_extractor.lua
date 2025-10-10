@@ -22,7 +22,7 @@ function M.extract_params_from_method(method)
         lines = method.lines
     end
     if not lines or type(lines) ~= "table" then
-        print("❌ extract_params_from_method: invalid argument")
+        print("ERR: extract_params_from_method: invalid argument")
         return {}
     end
 
@@ -55,7 +55,7 @@ function M.extract_params_from_method(method)
         end
     end
 
-    print("✅ Found params:")
+    print("INFO: Found params:")
     for i, p in ipairs(params) do
         print(string.format("%2d. %-40s %s", i, p.expr, p.sqltype))
     end
