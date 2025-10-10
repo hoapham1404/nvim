@@ -32,5 +32,9 @@ function M.is_linux()
     return M.get_os() == M.OS.LINUX
 end
 
+function M.get_env(var)
+    return vim.fn.getenv(var)
+end
+
 return M
 
