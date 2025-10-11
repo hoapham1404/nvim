@@ -1,4 +1,6 @@
--- File: lua/utils/safe_require.lua
+---@module 'utils.safe_require'
+---@brief Safe module requiring with error handling
+
 local M = {}
 
 function M.require(module)

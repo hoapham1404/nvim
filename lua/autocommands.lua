@@ -1,24 +1,42 @@
--- [[ Basic Autocommands ]]
-vim.api.nvim_create_autocmd("TextYankPost", {
+---@module 'autocommands'
+---@brief Autocommands for Neovim
+
+---@type function
+local autocmd = vim.api.nvim_create_autocmd
+---@type string
+local TEXT_YANK_POST = "TextYankPost"
+---@type string
+local FILE_TYPE = "FileType"
+---@type string
+local BUF_READ_POST = "BufReadPost"
+---@type string
+local BUF_ENTER = "BufEnter"
+---@type string
+local BUF_NEW_FILE = "BufNewFile"
+---@type string
+local INSERT_LEAVE = "InsertLeave"
+---@type string
+local LSP_ATTACH = "LspAttach"
+---@type string
+local BUF_WRITE_PRE = "BufWritePre"
+---@type string
+local BUF_READ = "BufRead"
+---@type string
+local RAZOR = "razor"
+---@type integer
+local GROUP = vim.api.nvim_create_augroup("app-utilities", { clear = true })
+
+---@brief Highlight when yanking (copying) text
+autocmd(TEXT_YANK_POST, {
     desc = "Highlight when yanking (copying) text",
-    group = vim.api.nvim_create_augroup("app-utilities", { clear = true }),
+    group = GROUP,
     callback = function()
         vim.highlight.on_yank()
     end,
 })
 
--- Auto split windows when open "man", "help", etc
-vim.api.nvim_create_autocmd("FileType", {
-    desc = "Auto split windows when open certain filetypes",
-    group = vim.api.nvim_create_augroup("app-utilities", { clear = true }),
-    pattern = { "man", "terminal" },
-    callback = function()
-        vim.cmd("wincmd L")
-    end,
-})
-
--- Auto command for installing parser lang when open a file with that lang
-vim.api.nvim_create_autocmd("BufReadPost", {
+---@brief Auto command for installing parser lang when open a file with that lang
+autocmd(BUF_READ_POST, {
     pattern = "*",
     callback = function()
         local lang = vim.bo.filetype
@@ -32,37 +50,46 @@ vim.api.nvim_create_autocmd("BufReadPost", {
     end,
 })
 
--- Auto command for setting filetype for jsx and tsx files
-vim.api.nvim_create_autocmd({ "BufEnter", "BufNewFile" }, {
+---@brief Auto command for setting filetype
+autocmd({ BUF_ENTER, BUF_NEW_FILE }, {
     pattern = { "*.jsx" },
     command = "set filetype=javascriptreact",
 })
-vim.api.nvim_create_autocmd({ "BufEnter", "BufNewFile" }, {
+
+autocmd({ BUF_ENTER, BUF_NEW_FILE }, {
     pattern = { "*.tsx" },
     command = "set filetype=typescriptreact",
 })
 
-vim.api.nvim_create_autocmd({ "BufEnter", "InsertLeave" }, {
+autocmd({ BUF_READ, BUF_NEW_FILE }, {
+    pattern = "*.razor",
+    callback = function()
+        vim.bo.filetype = RAZOR
+    end,
+})
+
+---@brief Refresh LSP code lens
+autocmd({ BUF_ENTER, INSERT_LEAVE }, {
     callback = function()
         vim.lsp.codelens.refresh()
     end,
-    group = vim.api.nvim_create_augroup("LspCodeLensRefesh", { clear = true })
+    group = GROUP,
 })
 
-vim.api.nvim_create_autocmd("LspAttach", {
+---@brief LSP actions for different filetypes
+autocmd(LSP_ATTACH, {
     desc = "LSP actions",
+    group = GROUP,
     callback = function(event)
-        local client = vim.lsp.get_client_by_id(event.data.client_id)
-        vim.notify("lspattach: " .. client.name)
-        if client then
-            vim.notify("✅ LSP attached: " .. client.name, vim.log.levels.INFO)
-        else
-            vim.notify("No lsp attached!!!", vim.log.levels.ERROR)
-        end
+        ---@type integer
         local bufnr = event.buf
+        ---@type table
         local opts = { buffer = bufnr }
+        ---@type string
         local filetype = vim.bo[bufnr].filetype
+        ---@type boolean
         local format_on_save = true
+
         vim.notify(filetype, vim.log.levels.INFO)
 
         -- Common LSP bindings
@@ -72,8 +99,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
             vim.keymap.set(
                 "n",
                 "gr",
-                function() require("omnisharp_extended").telescope_lsp_references(require(
-                    "telescope.themes").get_ivy({ excludeDefinition = true })) end,
+                function()
+                    require("omnisharp_extended").telescope_lsp_references(require(
+                        "telescope.themes").get_ivy({ excludeDefinition = true }))
+                end,
                 { noremap = true }
             )
         else
@@ -81,6 +110,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
             vim.keymap.set("n", "gr", require("telescope.builtin").lsp_references,
                 vim.tbl_extend("force", opts, { desc = "LSP References" }))
         end
+
         vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
         vim.keymap.set("n", "go", vim.lsp.buf.type_definition, opts)
         vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
@@ -95,7 +125,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
         -- Format on save
         if format_on_save then
-            vim.api.nvim_create_autocmd("BufWritePre", {
+            autocmd(BUF_WRITE_PRE, {
                 buffer = bufnr,
                 callback = function()
                     local skip_filetypes = { "markdown", "text", "html" }
@@ -109,10 +139,13 @@ vim.api.nvim_create_autocmd("LspAttach", {
 })
 
 
--- Support Blazor source code (.razor)
-vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
-    pattern = "*.razor",
+autocmd({
+    "CursorHold",
+    "CursorHoldI",
+}, {
+    desc = "Refresh LSP code lens",
     callback = function()
-        vim.bo.filetype = "razor"
+        vim.lsp.codelens.refresh()
     end,
+    group = GROUP,
 })

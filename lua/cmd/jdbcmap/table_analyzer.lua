@@ -1,12 +1,14 @@
--- Table Analyzer Module
--- Handles FROM clause parsing and table alias extraction
 ---@module '@jdbcmap/table_analyzer'
+---@brief Handles FROM clause parsing and table alias extraction
 
 local M = {}
 
 ---------------------------------------------------------------------
 -- Extract table information from FROM clause
 ---------------------------------------------------------------------
+--- Extract table information and aliases from SQL FROM clause
+---@param sql string|nil The SQL statement to analyze
+---@return table tables Table with alias as key and table info as value
 function M.extract_table_info(sql)
     if not sql or sql == "" then
         return {}
@@ -39,6 +41,9 @@ end
 ---------------------------------------------------------------------
 -- Parse comma-separated table list
 ---------------------------------------------------------------------
+--- Parse old-style comma-separated table list from FROM clause
+---@param from_section string The FROM clause section
+---@param tables table Table to populate with parsed table information
 function M.parse_comma_separated_tables(from_section, tables)
     print("🔍 Parsing comma-separated tables from: " .. from_section)
 
@@ -92,6 +97,9 @@ end
 ---------------------------------------------------------------------
 -- Parse JOIN-based syntax
 ---------------------------------------------------------------------
+--- Parse modern JOIN syntax from FROM clause
+---@param from_section string The FROM clause section
+---@param tables table Table to populate with parsed table information
 function M.parse_join_syntax(from_section, tables)
     -- Parse main table: [schema.]TABLE_NAME ALIAS
     local main_table, main_alias = from_section:match(
@@ -115,6 +123,11 @@ end
 ---------------------------------------------------------------------
 -- Parse specific join type
 ---------------------------------------------------------------------
+--- Parse a specific type of JOIN clause
+---@param from_section string The FROM clause section
+---@param tables table Table to populate with parsed table information
+---@param join_pattern string Regex pattern for the join type
+---@param join_type string Type identifier for the join
 function M.parse_join_type(from_section, tables, join_pattern, join_type)
     for join_match in from_section:gmatch("(" .. join_pattern .. ".-)%s*ON") do
         local table_name, alias = join_match:match(

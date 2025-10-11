@@ -1,3 +1,6 @@
+---@module 'utils.os'
+---@brief Operating system detection utilities
+
 local M = {}
 
 -- Constants for OS names

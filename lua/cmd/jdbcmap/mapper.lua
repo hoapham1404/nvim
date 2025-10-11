@@ -1,6 +1,5 @@
--- Mapper Module
--- Orchestrates the mapping between SQL columns and Java parameters
 ---@module '@jdbcmap/mapper'
+---@brief Orchestrates the mapping between SQL columns and Java parameters
 
 local sql_extractor = require('cmd.jdbcmap.sql_extractor')
 local column_parser = require('cmd.jdbcmap.column_parser')
@@ -12,6 +11,9 @@ local M = {}
 ---------------------------------------------------------------------
 -- Main mapping orchestration
 ---------------------------------------------------------------------
+--- Create complete mapping between SQL columns and Java parameters
+---@return table|nil mapping_data The mapping data or nil if failed
+---@return string|nil error Error message if failed
 function M.create_mapping()
     local method = sql_extractor.get_current_method_lines()
     if not method then
@@ -57,6 +59,9 @@ end
 ---------------------------------------------------------------------
 -- Detect SQL type
 ---------------------------------------------------------------------
+--- Detect the type of SQL statement (SELECT, INSERT, UPDATE)
+---@param sql string The SQL statement to analyze
+---@return string sql_type The detected SQL type
 function M.detect_sql_type(sql)
     if sql:match("INSERT%s+INTO") then
         return "INSERT"
@@ -72,6 +77,9 @@ end
 ---------------------------------------------------------------------
 -- Validate mapping (check for mismatches)
 ---------------------------------------------------------------------
+--- Validate the mapping data and check for parameter mismatches
+---@param mapping_data table The mapping data to validate
+---@return table warnings List of warning messages
 function M.validate_mapping(mapping_data)
     local warnings = {}
 

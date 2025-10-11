@@ -1,3 +1,6 @@
+---@module 'utils.floating_buffer'
+---@brief Floating buffer utilities for displaying information
+
 local Popup = require('nui.popup')
 local event = require('nui.utils.autocmd').event
 

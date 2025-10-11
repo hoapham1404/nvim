@@ -1,4 +1,5 @@
 ---@module '@jdbcmap/sql_extractor'
+---@brief Extracts SQL statements from Java method code
 
 ---@class SQLExtractor
 ---@field get_current_method_lines fun(): (table|nil)
@@ -37,8 +38,8 @@ end
 --- Reconstruct table name and alias from chained appends
 --- Pattern: businessDBUser).append(".").append(TableNames.TRNINSTDEVICE).append(" INS ,")
 --- or: businessDBUser).append(".").append(MSTDEVICE).append(" DEV ,")
---- @param line string
---- @return (string|nil)
+---@param line string The line containing chained append calls
+---@return string|nil Reconstructed table reference or nil
 function M.reconstruct_from_chained_appends(line)
     -- Check if this line has the chained pattern we're looking for
     if not (
@@ -75,8 +76,8 @@ function M.reconstruct_from_chained_appends(line)
 end
 
 --- Extract full SQL string (handle chained .append() calls)
---- @param method table (method object with lines)
---- @return (string|nil) Extracted SQL string or nil
+---@param method table Method object with lines property
+---@return string|nil Extracted SQL string or nil
 function M.extract_sql_from_method(method)
     if not method then
         return nil
@@ -139,8 +140,8 @@ function M.extract_sql_from_method(method)
 end
 
 --- Count number of ? placeholders in SQL string
---- @param sql string
---- @return number
+---@param sql string The SQL string to analyze
+---@return number Count of placeholder characters
 function M.count_placeholders(sql)
     if not sql or sql == "" then
         return 0
