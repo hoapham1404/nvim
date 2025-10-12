@@ -6,9 +6,16 @@
 ---@field extract_sql_from_method fun(method: table): (string|nil)
 ---@field count_placeholders fun(sql: string): number
 ---@field reconstruct_from_chained_appends fun(line: string): (string|nil)
+---@field replace_database_users fun(sql: string): string
 local M = {}
 
 local append_pattern = "%.append%s*%((.+)%)"
+
+-- Database user mapping constants
+local DATABASE_USER_MAPPING = {
+    businessDBUser = "KTV",
+    systemDBUser = "SMSKTV"
+}
 
 --- Get current method lines using Treesitter
 ---@return (table|nil) {start_line: number, end_line: number, lines: string[]}|nil
@@ -229,18 +236,24 @@ local function reconstruct_complex_chained_appends(line)
             else
                 -- Handle variables and constants
                 local constant = content:match("([A-Z][A-Z0-9_]+)$")
-                if constant and not is_sql_type_or_reserved(constant) and not constant:match("businessDBUser") then
+                if constant and not is_sql_type_or_reserved(constant) then
                     table.insert(parts, constant)
                 else
-                    -- Handle class-based constants like TableNames.MSTDEVICE
-                    local class_constant = content:match("TableNames%.([A-Z][A-Z0-9_]+)")
-                    if class_constant then
-                        table.insert(parts, class_constant)
+                    -- Handle database user variables like businessDBUser, systemDBUser
+                    local db_user = content:match("([a-zA-Z][a-zA-Z0-9]*)$")
+                    if db_user and (db_user == "businessDBUser" or db_user == "systemDBUser") then
+                        table.insert(parts, db_user)
                     else
-                        -- Handle other class patterns
-                        local other_constant = content:match("[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
-                        if other_constant then
-                            table.insert(parts, other_constant)
+                        -- Handle class-based constants like TableNames.MSTDEVICE
+                        local class_constant = content:match("TableNames%.([A-Z][A-Z0-9_]+)")
+                        if class_constant then
+                            table.insert(parts, class_constant)
+                        else
+                            -- Handle other class patterns
+                            local other_constant = content:match("[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
+                            if other_constant then
+                                table.insert(parts, other_constant)
+                            end
                         end
                     end
                 end
@@ -318,23 +331,29 @@ function M.extract_sql_from_method(method)
                                 end
                             end
 
-                            -- If no string literals found, check for table name constants
+                            -- If no string literals found, check for table name constants and database users
                             if not has_string then
                                 -- Pattern 1: Direct constants like MSTDEVICE, TRNDEVJOINT
                                 local constant = append_content:match("([A-Z][A-Z0-9_]+)$")
-                                if constant and not is_sql_type_or_reserved(constant) and not constant:match("businessDBUser") then
+                                if constant and not is_sql_type_or_reserved(constant) then
                                     table.insert(sql_parts, constant)
                                 else
-                                    -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
-                                    local class_constant = append_content:match("TableNames%.([A-Z][A-Z0-9_]+)")
-                                    if class_constant then
-                                        table.insert(sql_parts, class_constant)
+                                    -- Pattern 1b: Database user variables like businessDBUser, systemDBUser
+                                    local db_user = append_content:match("([a-zA-Z][a-zA-Z0-9]*)$")
+                                    if db_user and (db_user == "businessDBUser" or db_user == "systemDBUser") then
+                                        table.insert(sql_parts, db_user)
                                     else
-                                        -- Pattern 3: Other class patterns like Const.SOMETHING
-                                        local other_constant = append_content:match(
-                                            "[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
-                                        if other_constant then
-                                            table.insert(sql_parts, other_constant)
+                                        -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
+                                        local class_constant = append_content:match("TableNames%.([A-Z][A-Z0-9_]+)")
+                                        if class_constant then
+                                            table.insert(sql_parts, class_constant)
+                                        else
+                                            -- Pattern 3: Other class patterns like Const.SOMETHING
+                                            local other_constant = append_content:match(
+                                                "[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
+                                            if other_constant then
+                                                table.insert(sql_parts, other_constant)
+                                            end
                                         end
                                     end
                                 end
@@ -353,6 +372,9 @@ function M.extract_sql_from_method(method)
 
     local sql = table.concat(sql_parts, " ")
     sql = sql:gsub("%s+", " "):gsub("^%s*(.-)%s*$", "%1")
+    
+    -- Replace database user references with actual database names
+    sql = M.replace_database_users(sql)
 
     return sql
 end
@@ -385,6 +407,31 @@ function M.count_placeholders(sql)
     end
 
     return count
+end
+
+--- Replace database user references with actual database names
+--- @param sql string The SQL string to process
+--- @return string SQL with database user references replaced
+function M.replace_database_users(sql)
+    if not sql or sql == "" then
+        return sql
+    end
+    
+    local result = sql
+    
+    -- Replace each database user reference with its corresponding database name
+    for user_ref, db_name in pairs(DATABASE_USER_MAPPING) do
+        -- Replace patterns like "businessDBUser." with "KTV."
+        result = result:gsub(user_ref .. "%.", db_name .. ".")
+        -- Replace standalone references (not followed by dot)
+        result = result:gsub("([^%w])" .. user_ref .. "([^%w])", "%1" .. db_name .. "%2")
+        -- Handle start of string
+        result = result:gsub("^" .. user_ref .. "([^%w])", db_name .. "%1")
+        -- Handle end of string
+        result = result:gsub("([^%w])" .. user_ref .. "$", "%1" .. db_name)
+    end
+    
+    return result
 end
 
 return M

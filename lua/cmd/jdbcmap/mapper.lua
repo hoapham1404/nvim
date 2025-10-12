@@ -23,6 +23,9 @@ function M.create_mapping()
         return nil, "No SQL found in the current method"
     end
 
+    -- Track database user replacements
+    local database_replacements = M.detect_database_replacements(method.lines)
+
     local columns = column_parser.extract_columns_from_sql(sql)
     local params = param_extractor.extract_params_from_method(method)
     local placeholder_count = sql_extractor.count_placeholders(sql)
@@ -37,7 +40,8 @@ function M.create_mapping()
         columns = columns,
         params = params,
         placeholder_count = placeholder_count,
-        method = method
+        method = method,
+        database_replacements = database_replacements
     }
 
     -- Add type-specific data
@@ -67,6 +71,28 @@ function M.detect_sql_type(sql)
     else
         return "UNKNOWN"
     end
+end
+
+--- Detect database user replacements in method lines
+--- @param lines table Array of method lines
+--- @return table database_replacements Map of java_ref -> db_name
+function M.detect_database_replacements(lines)
+    local replacements = {}
+    local DATABASE_USER_MAPPING = {
+        businessDBUser = "KTV",
+        systemDBUser = "SMSKTV"
+    }
+    
+    for _, line in ipairs(lines) do
+        for java_ref, db_name in pairs(DATABASE_USER_MAPPING) do
+            -- Check if this line contains the database user reference
+            if line:find(java_ref) then
+                replacements[java_ref] = db_name
+            end
+        end
+    end
+    
+    return replacements
 end
 
 --- Validate the mapping data and check for parameter mismatches

@@ -14,6 +14,7 @@
 ---@field create_insert_values_section fun(mapping_data: table): table
 ---@field create_hardcoded_section fun(hardcoded_info: table): table
 ---@field create_warnings_section fun(warnings: table): table
+---@field create_database_replacements_section fun(mapping_data: table): table
 ---@field generate_title fun(sql_type: string): string
 ---@field get_sql_text fun(mapping_data: table): string|nil
 local M = {}
@@ -27,6 +28,11 @@ function M.generate_report(mapping_data, warnings)
 
     -- SQL Information Section
     table.insert(sections, M.create_sql_section(mapping_data))
+
+    -- Database user replacements section
+    if mapping_data.database_replacements and next(mapping_data.database_replacements) then
+        table.insert(sections, M.create_database_replacements_section(mapping_data))
+    end
 
     -- Type-specific sections
     if mapping_data.sql_type == "SELECT" then
@@ -335,6 +341,25 @@ function M.create_hardcoded_section(hardcoded_info)
     end
     return {
         title = "🔒 Hardcoded Values Detected",
+        content = content
+    }
+end
+
+--- Create database replacements section
+--- @param mapping_data table (mapping data containing database replacements)
+--- @return table Section with database replacements content
+function M.create_database_replacements_section(mapping_data)
+    local content = {
+        string.format("%-20s %-20s", "Java Reference", "Database Name"),
+        string.rep("─", 45)
+    }
+    
+    for java_ref, db_name in pairs(mapping_data.database_replacements) do
+        table.insert(content, string.format("%-20s %-20s", java_ref, db_name))
+    end
+    
+    return {
+        title = "🔄 Database User Replacements",
         content = content
     }
 end
