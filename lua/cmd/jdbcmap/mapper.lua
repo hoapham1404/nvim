@@ -51,8 +51,10 @@ function M.create_mapping()
     elseif sql_type == "UPDATE" then
         mapping_data.where_columns = column_parser.extract_where_columns(sql)
         mapping_data.set_param_info = column_parser.extract_set_param_info(sql, columns)
+        mapping_data.table_info = table_analyzer.extract_table_info(sql)
     elseif sql_type == "INSERT" then
         mapping_data.hardcoded_info = column_parser.analyze_insert_values(sql, columns)
+        mapping_data.table_info = table_analyzer.extract_table_info(sql)
     end
 
     return mapping_data, nil
