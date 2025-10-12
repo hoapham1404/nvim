@@ -24,6 +24,7 @@ FROM
 WHERE
     TABLE_NAME = '%s'
     AND COLUMN_NAME = '%s'
+    AND OWNER = 'KTV' -- Adjust schema as needed
 ORDER BY
     COLUMN_ID;]], table_name:upper(), column_name:upper())
 
