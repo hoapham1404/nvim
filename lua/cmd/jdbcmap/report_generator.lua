@@ -218,9 +218,9 @@ end
 --- @return table Section with SET clause content
 function M.create_set_clause_section(mapping_data)
     local content = {
-        string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
-            "SQL Type"),
-        string.rep("─", 95)
+        string.format("%-4s %-25s %-45s %-20s %-10s", "#", "Column Name", "Java Expression / Value",
+            "SQL Type", "Action"),
+        string.rep("─", 115)
     }
 
     local columns = mapping_data.columns
@@ -244,7 +244,7 @@ function M.create_set_clause_section(mapping_data)
                 param = "(⚠️ missing param)"
             end
         end
-        table.insert(content, string.format("%-4d %-25s %-45s %s", i, col, param, sqltype))
+        table.insert(content, string.format("%-4d %-25s %-45s %-20s %-10s", i, col, param, sqltype, "[copy]"))
     end
 
     return {
@@ -258,8 +258,8 @@ end
 --- @return table Section with WHERE clause content
 function M.create_update_where_section(mapping_data)
     local content = {
-        string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression", "SQL Type"),
-        string.rep("─", 95)
+        string.format("%-4s %-25s %-45s %-20s %-10s", "#", "Column Name", "Java Expression", "SQL Type", "Action"),
+        string.rep("─", 115)
     }
 
     local where_columns = mapping_data.where_columns or {}
@@ -277,8 +277,8 @@ function M.create_update_where_section(mapping_data)
     for i, where_col in ipairs(where_columns) do
         local param = params[param_index] and params[param_index].expr or "(⚠️ missing param)"
         local sqltype = params[param_index] and params[param_index].sqltype or ""
-        table.insert(content, string.format("%-4d %-25s %-45s %s",
-            i, where_col, param, sqltype))
+        table.insert(content, string.format("%-4d %-25s %-45s %-20s %-10s",
+            i, where_col, param, sqltype, "[copy]"))
         param_index = param_index + 1
     end
 
@@ -293,9 +293,9 @@ end
 --- @return table Section with INSERT values content
 function M.create_insert_values_section(mapping_data)
     local content = {
-        string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
-            "SQL Type"),
-        string.rep("─", 95)
+        string.format("%-4s %-25s %-45s %-20s %-10s", "#", "Column Name", "Java Expression / Value",
+            "SQL Type", "Action"),
+        string.rep("─", 115)
     }
 
     local columns = mapping_data.columns
@@ -320,8 +320,8 @@ function M.create_insert_values_section(mapping_data)
                 param = "(⚠️ missing param)"
             end
         end
-        table.insert(content, string.format("%-4d %-25s %-45s %s",
-            i, column_name, param, sqltype))
+        table.insert(content, string.format("%-4d %-25s %-45s %-20s %-10s",
+            i, column_name, param, sqltype, "[copy]"))
     end
 
     return {
