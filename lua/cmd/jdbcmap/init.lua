@@ -1,5 +1,5 @@
--- JDBC Mapper Module Loader
--- Convenience module to load all jdbcmap modules at once
+---@module 'cmd.jdbcmap'
+---@brief JDBC Mapper Module Loader - Convenience module to load all jdbcmap modules at once
 
 return {
     sql_extractor = require('cmd.jdbcmap.sql_extractor'),

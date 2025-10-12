@@ -38,9 +38,12 @@ return {
                 { name = "nvim_lsp" },
                 { name = "buffer" },
             },
-            preselect = "item",
+            preselect = cmp.PreselectMode.Item,
             completion = {
-                compleopt = "menu,menuone,noinsert"
+                completeopt = "menu,menuone,noinsert,noselect"
+            },
+            experimental = {
+                ghost_text = true, -- Show ghost text for better UX
             }
         })
     end,

@@ -1,3 +1,6 @@
+---@module 'utils.case_convert'
+---@brief Case conversion utilities for text
+
 local M = {}
 
 -- Configuration
