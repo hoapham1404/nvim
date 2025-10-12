@@ -423,7 +423,9 @@ function M.replace_database_users(sql)
     for user_ref, db_name in pairs(DATABASE_USER_MAPPING) do
         -- Replace patterns like "businessDBUser." with "KTV."
         result = result:gsub(user_ref .. "%.", db_name .. ".")
-        -- Replace standalone references (not followed by dot)
+        -- Replace patterns like "businessDBUserTRNPIPUSER" with "KTV.TRNPIPUSER"
+        result = result:gsub(user_ref .. "([A-Z][A-Z0-9_]*)", db_name .. ".%1")
+        -- Replace standalone references (not followed by word character)
         result = result:gsub("([^%w])" .. user_ref .. "([^%w])", "%1" .. db_name .. "%2")
         -- Handle start of string
         result = result:gsub("^" .. user_ref .. "([^%w])", db_name .. "%1")
