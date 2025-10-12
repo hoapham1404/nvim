@@ -15,6 +15,30 @@ function M.extract_table_info(sql)
     end
 
     local tables = {}
+    
+    -- Handle UPDATE statements
+    local update_match = sql:match("UPDATE%s+([^%s]+)")
+    if update_match then
+        local table_name = update_match:gsub("^[^%.]*%.", "") -- Remove schema prefix if present
+        tables["main"] = {
+            table_name = table_name,
+            type = "main",
+            alias = ""
+        }
+        return tables
+    end
+    
+    -- Handle INSERT statements
+    local insert_match = sql:match("INSERT%s+INTO%s+([^%s%(]+)")
+    if insert_match then
+        local table_name = insert_match:gsub("^[^%.]*%.", "") -- Remove schema prefix if present
+        tables["main"] = {
+            table_name = table_name,
+            type = "main",
+            alias = ""
+        }
+        return tables
+    end
 
     -- Extract FROM clause (from FROM to WHERE/ORDER BY/GROUP BY)
     -- Need to handle nested WHERE clauses in subqueries

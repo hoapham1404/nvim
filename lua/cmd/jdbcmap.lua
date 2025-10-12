@@ -102,6 +102,11 @@ function M.map_columns_and_params()
                     local row_line = line_offset + i
                     row_actions[row_line] = function()
                         local col_info = { name = col, table_alias = "" }
+                        -- Debug: Check if table_info is available
+                        if not table_info or not next(table_info) then
+                            vim.notify("⚠️ No table information available for column " .. col, vim.log.levels.WARN)
+                            return
+                        end
                         local query, err = oracle_metadata.generate_query_for_column(col_info, table_info)
                         if query then
                             clipboard.copy_with_message(query,
@@ -141,6 +146,11 @@ function M.map_columns_and_params()
                     local row_line = line_offset + i
                     row_actions[row_line] = function()
                         local col_info = { name = col, table_alias = "" }
+                        -- Debug: Check if table_info is available
+                        if not table_info or not next(table_info) then
+                            vim.notify("⚠️ No table information available for column " .. col, vim.log.levels.WARN)
+                            return
+                        end
                         local query, err = oracle_metadata.generate_query_for_column(col_info, table_info)
                         if query then
                             clipboard.copy_with_message(query,
@@ -181,6 +191,11 @@ function M.map_columns_and_params()
                     local row_line = line_offset + i
                     row_actions[row_line] = function()
                         local col_info = { name = col, table_alias = "" }
+                        -- Debug: Check if table_info is available
+                        if not table_info or not next(table_info) then
+                            vim.notify("⚠️ No table information available for column " .. col, vim.log.levels.WARN)
+                            return
+                        end
                         local query, err = oracle_metadata.generate_query_for_column(col_info, table_info)
                         if query then
                             clipboard.copy_with_message(query,
