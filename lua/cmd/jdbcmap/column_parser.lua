@@ -232,6 +232,17 @@ function M.parse_single_column(col_text)
         as_alias = as_part
         col_text = main_part
     end
+    
+    -- Check for implicit alias pattern: COLUMN_NAME ALIAS_NAME (without AS keyword)
+    -- Pattern: TABLE.COLUMN ALIAS or COLUMN ALIAS
+    if not col_text:match("%(") and not as_alias then
+        -- This looks like it could be an implicit alias (no parentheses, no AS keyword)
+        local base_part, implicit_alias = col_text:match("^([A-Z_][A-Z0-9_%.]*)%s+([A-Z_][A-Z0-9_]*)$")
+        if base_part and implicit_alias then
+            as_alias = implicit_alias
+            col_text = base_part
+        end
+    end
 
     -- Check if this is a function expression (contains parentheses)
     if col_text:match("%(.*%)") then
