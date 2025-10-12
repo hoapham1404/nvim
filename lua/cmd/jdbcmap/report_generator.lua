@@ -15,6 +15,7 @@
 ---@field create_hardcoded_section fun(hardcoded_info: table): table
 ---@field create_warnings_section fun(warnings: table): table
 ---@field generate_title fun(sql_type: string): string
+---@field get_sql_text fun(mapping_data: table): string|nil
 local M = {}
 
 --- Generate complete report from mapping datasets
@@ -368,6 +369,16 @@ function M.generate_title(sql_type)
         title = title .. " (INSERT)"
     end
     return title
+end
+
+--- Get SQL text from mapping data
+--- @param mapping_data table Mapping data containing SQL
+--- @return string|nil SQL text or nil if not found
+function M.get_sql_text(mapping_data)
+    if mapping_data and mapping_data.sql then
+        return mapping_data.sql
+    end
+    return nil
 end
 
 return M

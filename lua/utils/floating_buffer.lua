@@ -1,5 +1,5 @@
 ---@module 'utils.floating_buffer'
----@brief Floating buffer utilities for displaying information
+---@brief Floating buffer utilities for displaying information with extensible keybindings
 
 local Popup = require('nui.popup')
 local event = require('nui.utils.autocmd').event
@@ -9,6 +9,22 @@ if not Popup or not event then
 end
 
 local M = {}
+
+---@class KeyMapping
+---@field key string The key to bind
+---@field action function|string The action to perform (function or vim command string)
+---@field description string Description of the action for help text
+---@field mode? string Vim mode (default: "n")
+---@field opts? table Additional mapping options
+
+---@class FloatingBufferConfig
+---@field position? string Position of the popup (default: "50%")
+---@field size? table Size configuration {width, height}
+---@field border? table Border configuration
+---@field title? string Title for the popup
+---@field custom_keymaps? KeyMapping[] Additional custom keymaps
+---@field disable_default_keymaps? boolean Disable default keymaps (default: false)
+---@field footer_text? string Custom footer text (overrides auto-generated)
 
 -- Default configuration
 local default_config = {
@@ -44,11 +60,85 @@ local default_config = {
 -- Store the current popup instance
 local current_popup = nil
 
+--- Get default keymaps for popup navigation and control
+--- @return KeyMapping[] Default keymaps
+local function get_default_keymaps()
+    return {
+        { key = "<Esc>", action = "close", description = "Close popup", mode = "n" },
+        { key = "q", action = "close", description = "Close popup", mode = "n" },
+        { key = "j", action = "j", description = "Move down", mode = "n" },
+        { key = "k", action = "k", description = "Move up", mode = "n" },
+        { key = "<Down>", action = "j", description = "Move down", mode = "n" },
+        { key = "<Up>", action = "k", description = "Move up", mode = "n" },
+        { key = "<C-d>", action = "<C-d>", description = "Page down", mode = "n" },
+        { key = "<C-u>", action = "<C-u>", description = "Page up", mode = "n" },
+        { key = "gg", action = "gg", description = "Go to top", mode = "n" },
+        { key = "G", action = "G", description = "Go to bottom", mode = "n" },
+    }
+end
+
+--- Generate footer text from keymaps
+--- @param custom_keymaps? KeyMapping[] Custom keymaps to include in footer
+--- @return string Footer text
+local function generate_footer_text(custom_keymaps)
+    local controls = {}
+
+    -- Add default controls description
+    table.insert(controls, "<Esc>/q: close")
+    table.insert(controls, "j/k or ↑/↓: scroll")
+    table.insert(controls, "Ctrl+d/u: page scroll")
+
+    -- Add custom keymaps description
+    if custom_keymaps then
+        for _, mapping in ipairs(custom_keymaps) do
+            if mapping.description then
+                table.insert(controls, mapping.key .. ": " .. mapping.description)
+            end
+        end
+    end
+
+    return "Controls: " .. table.concat(controls, ", ")
+end
+
 -- Function to close the current popup
 local function close_popup()
     if current_popup then
         current_popup:unmount()
         current_popup = nil
+    end
+end
+
+--- Apply keymaps to a popup
+--- @param popup table The popup instance
+--- @param custom_keymaps? KeyMapping[] Custom keymaps to apply
+--- @param disable_defaults? boolean Whether to disable default keymaps
+local function apply_keymaps(popup, custom_keymaps, disable_defaults)
+    -- Apply default keymaps unless disabled
+    if not disable_defaults then
+        local default_keymaps = get_default_keymaps()
+        for _, mapping in ipairs(default_keymaps) do
+            local action = mapping.action
+            if action == "close" then
+                action = close_popup
+            end
+
+            local opts = vim.tbl_extend("force", { noremap = true, silent = true }, mapping.opts or {})
+            popup:map(mapping.mode or "n", mapping.key, action, opts)
+        end
+    end
+
+    -- Apply custom keymaps
+    if custom_keymaps then
+        for _, mapping in ipairs(custom_keymaps) do
+            local action = mapping.action
+            -- Allow "close" as a special action
+            if action == "close" then
+                action = close_popup
+            end
+
+            local opts = vim.tbl_extend("force", { noremap = true, silent = true }, mapping.opts or {})
+            popup:map(mapping.mode or "n", mapping.key, action, opts)
+        end
     end
 end
 
@@ -62,9 +152,13 @@ function M.show(content, config)
     -- Merge user config with defaults
     local popup_config = vim.tbl_deep_extend("force", default_config, config or {})
 
-    -- Calculate dimensions as percentage if not overridden
-    -- Keep the percentage strings - nui.nvim will handle the calculation
-    -- The default 80% width and 80% height will work correctly
+    -- Extract custom keymaps and other extension points
+    local custom_keymaps = popup_config.custom_keymaps
+    local disable_defaults = popup_config.disable_default_keymaps
+
+    -- Remove our custom fields from popup config
+    popup_config.custom_keymaps = nil
+    popup_config.disable_default_keymaps = nil
 
     -- Create the popup
     current_popup = Popup(popup_config)
@@ -95,24 +189,8 @@ function M.show(content, config)
     vim.api.nvim_buf_set_option(current_popup.bufnr, 'modifiable', false)
     vim.api.nvim_buf_set_option(current_popup.bufnr, 'readonly', true)
 
-    -- Set up key mappings for the popup
-    current_popup:map("n", "<Esc>", function()
-        close_popup()
-    end, { noremap = true, silent = true })
-
-    current_popup:map("n", "q", function()
-        close_popup()
-    end, { noremap = true, silent = true })
-
-    -- Enable scrolling
-    current_popup:map("n", "j", "j", { noremap = true, silent = true })
-    current_popup:map("n", "k", "k", { noremap = true, silent = true })
-    current_popup:map("n", "<Down>", "j", { noremap = true, silent = true })
-    current_popup:map("n", "<Up>", "k", { noremap = true, silent = true })
-    current_popup:map("n", "<C-d>", "<C-d>", { noremap = true, silent = true })
-    current_popup:map("n", "<C-u>", "<C-u>", { noremap = true, silent = true })
-    current_popup:map("n", "gg", "gg", { noremap = true, silent = true })
-    current_popup:map("n", "G", "G", { noremap = true, silent = true })
+    -- Apply keymaps (default + custom)
+    apply_keymaps(current_popup, custom_keymaps, disable_defaults)
 
     -- Auto-close on buffer leave (when clicking outside)
     current_popup:on(event.BufLeave, function()
@@ -186,7 +264,10 @@ end
 -- Function to show formatted table data (like your JDBC results)
 -- @param title: string title for the popup
 -- @param sections: table of sections, each with a title and content
-function M.show_report(title, sections)
+-- @param config: optional FloatingBufferConfig for customization
+function M.show_report(title, sections, config)
+    config = config or {}
+
     local lines = {}
 
     -- Add main title
@@ -219,9 +300,11 @@ function M.show_report(title, sections)
 
     -- Add footer with controls
     table.insert(lines, "")
-    table.insert(lines, "Controls: <Esc>/q to close, j/k or ↑/↓ to scroll, Ctrl+d/u for page scroll")
+    local footer_text = config.footer_text or generate_footer_text(config.custom_keymaps)
+    table.insert(lines, footer_text)
 
-    local config = {
+    -- Prepare popup config
+    local popup_config = vim.tbl_deep_extend("force", {
         border = {
             style = "rounded",
             text = {
@@ -229,9 +312,9 @@ function M.show_report(title, sections)
                 top_align = "center",
             },
         },
-    }
+    }, config)
 
-    return M.show(lines, config)
+    return M.show(lines, popup_config)
 end
 
 -- Function to check if a popup is currently open

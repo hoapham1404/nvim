@@ -10,6 +10,7 @@
 -- - report_generator: Generates formatted output reports
 
 local floating_buffer = require('utils.floating_buffer')
+local clipboard = require('utils.clipboard')
 local mapper = require('cmd.jdbcmap.mapper')
 local report_generator = require('cmd.jdbcmap.report_generator')
 
@@ -34,8 +35,28 @@ function M.map_columns_and_params()
     local sections = report_generator.generate_report(mapping_data, warnings)
     local title = report_generator.generate_title(mapping_data.sql_type)
 
-    -- Show the floating buffer with all information
-    floating_buffer.show_report(title, sections)
+    -- Get SQL text for clipboard functionality
+    local sql_text = report_generator.get_sql_text(mapping_data)
+
+    -- Define custom keymaps for the report - Open for extension!
+    local custom_keymaps = {}
+
+    -- Add copy SQL keybinding if SQL is available
+    if sql_text then
+        table.insert(custom_keymaps, {
+            key = "y",
+            action = function()
+                clipboard.copy_with_message(sql_text, "✅ SQL query copied to clipboard!")
+            end,
+            description = "copy SQL",
+            mode = "n"
+        })
+    end
+
+    -- Show the floating buffer with extended functionality
+    floating_buffer.show_report(title, sections, {
+        custom_keymaps = custom_keymaps,
+    })
 end
 
 -- Neovim user command
