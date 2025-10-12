@@ -67,6 +67,6 @@ return {
         })
 
         ---------------------------- Test ---------------------------------------
-        require("mini.test").setup()
+        require("mini.test").setup({})
     end,
 }
