@@ -9,9 +9,8 @@ local param_extractor = require('cmd.jdbcmap.param_extractor')
 
 local M = {}
 
----------------------------------------------------------------------
--- Main mapping orchestration
----------------------------------------------------------------------
+--- Main mapping orchestration
+---@return table|nil (mapping_data|error string)
 function M.create_mapping()
     local method = sql_extractor.get_current_method_lines()
     if not method then
@@ -54,9 +53,7 @@ function M.create_mapping()
     return mapping_data, nil
 end
 
----------------------------------------------------------------------
 -- Detect SQL type
----------------------------------------------------------------------
 function M.detect_sql_type(sql)
     if sql:match("INSERT%s+INTO") then
         return "INSERT"
@@ -69,9 +66,7 @@ function M.detect_sql_type(sql)
     end
 end
 
----------------------------------------------------------------------
 -- Validate mapping (check for mismatches)
----------------------------------------------------------------------
 function M.validate_mapping(mapping_data)
     local warnings = {}
 
@@ -83,7 +78,8 @@ function M.validate_mapping(mapping_data)
                 #mapping_data.params,
                 mapping_data.placeholder_count
             ),
-            details = "This might indicate hardcoded values in SQL (like SYSDATE) or missing parameters."
+            details =
+            "This might indicate hardcoded values in SQL (like SYSDATE) or missing parameters."
         })
     end
 

@@ -8,4 +8,5 @@ return {
     param_extractor = require('cmd.jdbcmap.param_extractor'),
     mapper = require('cmd.jdbcmap.mapper'),
     report_generator = require('cmd.jdbcmap.report_generator'),
+    constant_extractor = require('cmd.jdbcmap.constant_extractor'),
 }

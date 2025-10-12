@@ -38,13 +38,23 @@ function M.map_columns_and_params()
     floating_buffer.show_report(title, sections)
 end
 
----------------------------------------------------------------------
 -- Neovim user command
----------------------------------------------------------------------
 vim.api.nvim_create_user_command("JDBCMapParams", function()
     M.map_columns_and_params()
 end, {})
 
+-- Test modules command
+vim.api.nvim_create_user_command("TestConstantExtractor", function()
+    local const_extractor = require('cmd.jdbcmap.constant_extractor')
+    local constants = const_extractor.get_constants_from_table_name()
+    print(vim.inspect(constants))
+end, {})
+
+vim.api.nvim_create_user_command("TestExistingConstants", function()
+    local const_extractor = require('cmd.jdbcmap.constant_extractor')
+    local constants = const_extractor.get_existing_constants()
+    print(vim.inspect(constants))
+end, {})
 ---------------------------------------------------------------------
 -- BACKWARD COMPATIBILITY API
 -- Export functions from submodules for existing code that might use them
@@ -116,5 +126,12 @@ M.extract_params_from_method = function(method)
     return require('cmd.jdbcmap.param_extractor').extract_params_from_method(method)
 end
 
-return M
+-- Constant Extractor functions
+M.get_existing_constants = function()
+    return require('cmd.jdbcmap.constant_extractor').get_existing_constants()
+end
 
+M.get_constants_from_table_name = function()
+    return require('cmd.jdbcmap.constant_extractor').get_constants_from_table_name()
+end
+return M

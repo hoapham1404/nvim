@@ -20,7 +20,7 @@ local M = {}
 --- Generate complete report from mapping datasets
 --- @param mapping_data table Mapping data extracted from analysis
 --- @param warnings table List of warning messages
---- @return table Report sections
+--- @return table (Report sections)
 function M.generate_report(mapping_data, warnings)
     local sections = {}
 
@@ -153,7 +153,8 @@ end
 --- @return table Section with selected columns content
 function M.create_select_columns_section(columns)
     local content = {
-        string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias", "AS Alias", "Full Reference"),
+        string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias", "AS Alias",
+            "Full Reference"),
         string.rep("─", 95)
     }
 
@@ -164,7 +165,8 @@ function M.create_select_columns_section(columns)
             col_name = type(col.name) == "string" and col.name or ""
             table_alias = type(col.table_alias) == "string" and col.table_alias or ""
             as_alias = type(col.as_alias) == "string" and col.as_alias or ""
-            full_ref = type(col.full_reference) == "string" and col.full_reference or (col_name ~= "" and col_name or "")
+            full_ref = type(col.full_reference) == "string" and col.full_reference or
+                (col_name ~= "" and col_name or "")
         else
             col_name = tostring(col)
             full_ref = col_name
@@ -209,7 +211,8 @@ end
 --- @return table Section with SET clause content
 function M.create_set_clause_section(mapping_data)
     local content = {
-        string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"),
+        string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
+            "SQL Type"),
         string.rep("─", 95)
     }
 
@@ -283,7 +286,8 @@ end
 --- @return table Section with INSERT values content
 function M.create_insert_values_section(mapping_data)
     local content = {
-        string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value", "SQL Type"),
+        string.format("%-4s %-25s %-45s %s", "#", "Column Name", "Java Expression / Value",
+            "SQL Type"),
         string.rep("─", 95)
     }
 
