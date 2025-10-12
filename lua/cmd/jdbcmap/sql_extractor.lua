@@ -38,6 +38,7 @@ end
 --- Reconstruct table name and alias from chained appends
 --- Pattern: businessDBUser).append(".").append(TableNames.TRNINSTDEVICE).append(" INS ,")
 --- or: businessDBUser).append(".").append(MSTDEVICE).append(" DEV ,")
+--- or: businessDBUser).append(".").append(TRNPIPUSER) (no alias)
 ---@param line string The line containing chained append calls
 ---@return string|nil Reconstructed table reference or nil
 function M.reconstruct_from_chained_appends(line)
@@ -70,6 +71,76 @@ function M.reconstruct_from_chained_appends(line)
         else
             return table_name .. " " .. alias
         end
+    elseif table_name then
+        -- Table name without alias (e.g., businessDBUser).append(".").append(TRNPIPUSER))
+        return table_name
+    end
+
+    return nil
+end
+
+--- Check if a constant is a SQL type or reserved keyword
+---@param constant string The constant to check
+---@return boolean True if it's a SQL type/reserved keyword
+local function is_sql_type_or_reserved(constant)
+    local reserved = {
+        "Types", "VARCHAR", "NUMERIC", "INTEGER", "BIGINT", "DECIMAL",
+        "CHAR", "DATE", "TIMESTAMP", "BOOLEAN", "DOUBLE", "FLOAT"
+    }
+    for _, reserved_word in ipairs(reserved) do
+        if constant == reserved_word then
+            return true
+        end
+    end
+    return false
+end
+
+--- Reconstruct constant + string literal pattern from consecutive lines
+--- Pattern: .append(TRNPIPUSER).append(".CONCLUDE_YMD, ")
+---@param lines string[] All method lines
+---@param current_index number Current line index (1-based)
+---@return string|nil Reconstructed reference like "TRNPIPUSER.CONCLUDE_YMD, " or nil
+---@return number Number of additional lines consumed (0 if no match, 1 if matched next line)
+local function reconstruct_consecutive_constant_append(lines, current_index)
+    local current_line = lines[current_index]
+    local next_line = lines[current_index + 1]
+
+    if not current_line or not next_line then
+        return nil, 0
+    end
+
+    -- Match current line: .append(CONSTANT) with optional semicolon and whitespace
+    local constant = current_line:match("%.append%s*%(([A-Z][A-Z0-9_]+)%)%s*;?%s*$")
+    if not constant or is_sql_type_or_reserved(constant) or constant:match("businessDBUser") then
+        return nil, 0
+    end
+
+    -- Match next line: sqlBuf.append(".something") or just .append(".something")
+    local next_append_content = next_line:match("%.append%s*%((.+)%)%s*;?")
+    if not next_append_content then
+        return nil, 0
+    end
+
+    -- Extract string literal from next append
+    local str_literal = next_append_content:match('^"([^"]*)"')
+    if not str_literal then
+        return nil, 0
+    end
+
+    -- Reconstruct the full reference (no space, directly concatenate)
+    return constant .. str_literal, 1
+end
+
+--- Reconstruct same-line constant + string pattern
+--- Pattern: .append(TRNPIPUSER).append(".INPUT_NO = ? ")
+---@param line string The line to check
+---@return string|nil Reconstructed reference or nil
+local function reconstruct_same_line_constant_append(line)
+    -- Match pattern: .append(CONSTANT).append("string")
+    local constant, str_literal = line:match("%.append%s*%(([A-Z][A-Z0-9_]+)%)%s*%.append%s*%(\"([^\"]+)\"%)")
+
+    if constant and str_literal and not is_sql_type_or_reserved(constant) and constant ~= "businessDBUser" then
+        return constant .. str_literal
     end
 
     return nil
@@ -84,53 +155,78 @@ function M.extract_sql_from_method(method)
     end
 
     local sql_parts = {}
+    local i = 1
 
-    for _, line in ipairs(method.lines) do
+    while i <= #method.lines do
+        local line = method.lines[i]
+
+        -- Skip commented lines (Java single-line comments)
+        local is_comment = line:match("^%s*//")
+        if is_comment then
+            i = i + 1
+            goto continue
+        end
+
         -- Match .append() calls with content
         local append_content = line:match(append_pattern)
         if append_content then
-            -- Check for chained append pattern first
+            -- Check for chained append pattern first (businessDBUser + table + alias)
             local chained_result = M.reconstruct_from_chained_appends(line)
             if chained_result then
                 table.insert(sql_parts, chained_result)
+                i = i + 1
             else
-                -- Extract string literals (quoted content)
-                local has_string = false
-                for str_literal in append_content:gmatch('"([^"]*)"') do
-                    if str_literal and #str_literal > 0 then
-                        table.insert(sql_parts, str_literal)
-                        has_string = true
-                    end
-                end
-
-                -- If no string literals found, check for table name constants
-                if not has_string then
-                    -- Pattern 1: Direct constants like MSTDEVICE, TRNDEVJOINT
-                    local constant = append_content:match("([A-Z][A-Z0-9_]+)$")
-                    if constant and
-                        constant ~= "Types" and
-                        constant ~= "VARCHAR" and
-                        constant ~= "NUMERIC" and
-                        constant ~= "INTEGER" and
-                        not constant:match("businessDBUser") then
-                        table.insert(sql_parts, constant)
+                -- Check for same-line constant + string pattern
+                local same_line_result = reconstruct_same_line_constant_append(line)
+                if same_line_result then
+                    table.insert(sql_parts, same_line_result)
+                    i = i + 1
+                else
+                    -- Check for consecutive constant + string literal pattern
+                    local consecutive_result, lines_consumed = reconstruct_consecutive_constant_append(method.lines, i)
+                    if consecutive_result then
+                        table.insert(sql_parts, consecutive_result)
+                        i = i + 1 + lines_consumed  -- Skip the next line(s) we already processed
                     else
-                        -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
-                        local class_constant = append_content:match("TableNames%.([A-Z][A-Z0-9_]+)")
-                        if class_constant then
-                            table.insert(sql_parts, class_constant)
-                        else
-                            -- Pattern 3: Other class patterns like Const.SOMETHING
-                            local other_constant = append_content:match(
-                                "[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
-                            if other_constant then
-                                table.insert(sql_parts, other_constant)
+                        -- Extract string literals (quoted content)
+                        local has_string = false
+                        for str_literal in append_content:gmatch('"([^"]*)"') do
+                            if str_literal and #str_literal > 0 then
+                                table.insert(sql_parts, str_literal)
+                                has_string = true
                             end
                         end
+
+                        -- If no string literals found, check for table name constants
+                        if not has_string then
+                            -- Pattern 1: Direct constants like MSTDEVICE, TRNDEVJOINT
+                            local constant = append_content:match("([A-Z][A-Z0-9_]+)$")
+                            if constant and not is_sql_type_or_reserved(constant) and not constant:match("businessDBUser") then
+                                table.insert(sql_parts, constant)
+                            else
+                                -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
+                                local class_constant = append_content:match("TableNames%.([A-Z][A-Z0-9_]+)")
+                                if class_constant then
+                                    table.insert(sql_parts, class_constant)
+                                else
+                                    -- Pattern 3: Other class patterns like Const.SOMETHING
+                                    local other_constant = append_content:match(
+                                        "[A-Z][a-zA-Z]*%.([A-Z][A-Z0-9_]+)")
+                                    if other_constant then
+                                        table.insert(sql_parts, other_constant)
+                                    end
+                                end
+                            end
+                        end
+                        i = i + 1
                     end
                 end
             end
+        else
+            i = i + 1
         end
+
+        ::continue::
     end
 
     local sql = table.concat(sql_parts, " ")

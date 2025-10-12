@@ -60,6 +60,7 @@ function M.parse_comma_separated_tables(from_section, tables)
         end
     else
         -- No commas - might be space-separated like "TRNINSTDEVICE INS TRNUSER CUS"
+        -- or just a single table like "TRNPIPUSER"
         -- Use a more sophisticated approach to identify table patterns
         local remaining = from_section
         while remaining and remaining ~= "" do
@@ -70,6 +71,11 @@ function M.parse_comma_separated_tables(from_section, tables)
                 table.insert(table_specs, table_name .. " " .. alias)
                 remaining = rest
             else
+                -- Check if it's just a single table name with no alias
+                local solo_table = remaining:match("^%s*([A-Z_][A-Z0-9_]+)%s*$")
+                if solo_table then
+                    table.insert(table_specs, solo_table)
+                end
                 break
             end
         end
@@ -79,7 +85,7 @@ function M.parse_comma_separated_tables(from_section, tables)
     for _, table_spec in ipairs(table_specs) do
         print("   Parsing table spec: '" .. table_spec .. "'")
 
-        -- Pattern: [schema.]TABLE_NAME ALIAS
+        -- Pattern 1: [schema.]TABLE_NAME ALIAS
         local table_name, alias = table_spec:match("([A-Z_][A-Z0-9_]+)%s+([A-Z_][A-Z0-9_]+)")
         if table_name and alias then
             tables[alias] = {
@@ -89,7 +95,18 @@ function M.parse_comma_separated_tables(from_section, tables)
             }
             print(string.format("   → Table: %s (alias: %s)", table_name, alias))
         else
-            print("   → Failed to parse: " .. table_spec)
+            -- Pattern 2: TABLE_NAME (no alias - table name acts as its own alias)
+            local solo_table = table_spec:match("^%s*([A-Z_][A-Z0-9_]+)%s*$")
+            if solo_table then
+                tables[solo_table] = {
+                    table_name = solo_table,
+                    alias = solo_table,
+                    type = "table"
+                }
+                print(string.format("   → Table: %s (no alias, using table name)", solo_table))
+            else
+                print("   → Failed to parse: " .. table_spec)
+            end
         end
     end
 end
@@ -148,7 +165,18 @@ function M.parse_join_syntax(from_section, tables)
             }
             print(string.format("   Main table: %s (alias: %s)", main_table, main_alias))
         else
-            print(string.format("   ⚠️ Failed to parse main table from: '%s'", main_part))
+            -- Try to match table without alias
+            local solo_table = main_part:match("^%s*([A-Z_][A-Z0-9_]+)%s*$")
+            if solo_table then
+                tables[solo_table] = {
+                    table_name = solo_table,
+                    alias = solo_table,
+                    type = "main"
+                }
+                print(string.format("   Main table: %s (no alias, using table name)", solo_table))
+            else
+                print(string.format("   ⚠️ Failed to parse main table from: '%s'", main_part))
+            end
         end
     end
 
