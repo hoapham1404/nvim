@@ -15,7 +15,7 @@ local append_pattern = "%.append%s*%((.+)%)"
 -- Database user mapping constants
 local DATABASE_USER_MAPPING = {
     businessDBUser = "KTV",
-    systemDBUser = "SMSKTV"
+    systemDBUser = "SMS_KTV"
 }
 
 --- Get current method lines using Treesitter
@@ -148,7 +148,8 @@ end
 ---@return string|nil Reconstructed reference or nil
 local function reconstruct_same_line_constant_append(line)
     -- Match pattern: .append(CONSTANT).append("string")
-    local constant, str_literal = line:match("%.append%s*%(([A-Z][A-Z0-9_]+)%)%s*%.append%s*%(\"([^\"]+)\"%)")
+    local constant, str_literal = line:match(
+    "%.append%s*%(([A-Z][A-Z0-9_]+)%)%s*%.append%s*%(\"([^\"]+)\"%)")
 
     if constant and str_literal and not is_sql_type_or_reserved(constant) and constant ~= "businessDBUser" then
         return constant .. str_literal
@@ -167,13 +168,13 @@ local function reconstruct_complex_chained_appends(line)
     for _ in line:gmatch("%.append%s*%(") do
         append_count = append_count + 1
     end
-    
+
     if append_count < 2 then
         return nil
     end
-    
+
     local parts = {}
-    
+
     -- Extract all append content using a more comprehensive pattern
     -- Handle nested parentheses correctly by counting them
     local function extract_append_content(line, start_pos)
@@ -183,10 +184,10 @@ local function reconstruct_complex_chained_appends(line)
         local content_end = nil
         local in_string = false
         local escape_next = false
-        
+
         while pos <= #line do
             local char = line:sub(pos, pos)
-            
+
             if escape_next then
                 escape_next = false
             elseif char == "\\" then
@@ -209,20 +210,20 @@ local function reconstruct_complex_chained_appends(line)
             end
             pos = pos + 1
         end
-        
+
         if content_start and content_end then
             return line:sub(content_start, content_end), pos
         end
         return nil, pos
     end
-    
+
     local pos = 1
     while pos <= #line do
         local append_start = line:find("%.append%s*%(", pos)
         if not append_start then
             break
         end
-        
+
         local content, new_pos = extract_append_content(line, append_start)
         if content then
             -- Handle string literals
@@ -262,16 +263,16 @@ local function reconstruct_complex_chained_appends(line)
         end
         pos = new_pos
     end
-    
+
     if #parts > 0 then
         -- Join parts intelligently - concatenate without spaces for proper SQL
         local result = table.concat(parts, "")
         -- Clean up extra spaces and normalize
-        result = result:gsub("%s+", " ")  -- Multiple spaces to single space
-        result = result:gsub("^%s*(.-)%s*$", "%1")  -- Trim leading/trailing spaces
+        result = result:gsub("%s+", " ")           -- Multiple spaces to single space
+        result = result:gsub("^%s*(.-)%s*$", "%1") -- Trim leading/trailing spaces
         return result
     end
-    
+
     return nil
 end
 
@@ -302,7 +303,7 @@ function M.extract_multiline_append(lines, current_index)
 
     while i <= #lines do
         local line = lines[i]
-        
+
         -- Skip empty lines
         if line:match("^%s*$") then
             i = i + 1
@@ -394,10 +395,11 @@ function M.extract_sql_from_method(method)
                         i = i + 1
                     else
                         -- Check for consecutive constant + string literal pattern
-                        local consecutive_result, lines_consumed = reconstruct_consecutive_constant_append(method.lines, i)
+                        local consecutive_result, lines_consumed =
+                        reconstruct_consecutive_constant_append(method.lines, i)
                         if consecutive_result then
                             table.insert(sql_parts, consecutive_result)
-                            i = i + 1 + lines_consumed  -- Skip the next line(s) we already processed
+                            i = i + 1 + lines_consumed -- Skip the next line(s) we already processed
                         else
                             -- Extract string literals (quoted content)
                             local has_string = false
@@ -421,7 +423,8 @@ function M.extract_sql_from_method(method)
                                         table.insert(sql_parts, db_user)
                                     else
                                         -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
-                                        local class_constant = append_content:match("TableNames%.([A-Z][A-Z0-9_]+)")
+                                        local class_constant = append_content:match(
+                                        "TableNames%.([A-Z][A-Z0-9_]+)")
                                         if class_constant then
                                             table.insert(sql_parts, class_constant)
                                         else
@@ -449,7 +452,7 @@ function M.extract_sql_from_method(method)
 
     local sql = table.concat(sql_parts, " ")
     sql = sql:gsub("%s+", " "):gsub("^%s*(.-)%s*$", "%1")
-    
+
     -- Replace database user references with actual database names
     sql = M.replace_database_users(sql)
 
@@ -493,9 +496,9 @@ function M.replace_database_users(sql)
     if not sql or sql == "" then
         return sql
     end
-    
+
     local result = sql
-    
+
     -- Replace each database user reference with its corresponding database name
     for user_ref, db_name in pairs(DATABASE_USER_MAPPING) do
         -- Replace patterns like "businessDBUser." with "KTV."
@@ -509,7 +512,7 @@ function M.replace_database_users(sql)
         -- Handle end of string
         result = result:gsub("([^%w])" .. user_ref .. "$", "%1" .. db_name)
     end
-    
+
     return result
 end
 
