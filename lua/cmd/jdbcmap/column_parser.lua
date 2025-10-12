@@ -222,23 +222,45 @@ function M.parse_single_column(col_text)
     col_text = col_text:gsub("^%s*(.-)%s*$", "%1")
 
     -- Parse: [TABLE_ALIAS.]COLUMN_NAME [AS ALIAS_NAME]
+    -- or: FUNCTION(...) AS ALIAS_NAME
     local table_alias, column_name, as_alias = nil, nil, nil
+    local original_text = col_text
 
-    -- Check for AS clause first
+    -- Check for AS clause first (handles both simple columns and function expressions)
     local main_part, as_part = col_text:match("^(.-)%s+AS%s+([A-Z_][A-Z0-9_]*)$")
     if main_part and as_part then
-        col_text = main_part
         as_alias = as_part
+        col_text = main_part
     end
 
-    -- Check for table alias prefix
-    local prefix, col_name = col_text:match("^([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)$")
-    if prefix and col_name then
-        table_alias = prefix
-        column_name = col_name
+    -- Check if this is a function expression (contains parentheses)
+    if col_text:match("%(.*%)") then
+        -- Extract column name from function expression
+        -- e.g., TO_CHAR(TPU.FILE_MAKE_YMD, 'YYYY/MM/DD') -> extract table alias and column
+        local prefix, col_name = col_text:match("([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)")
+        if prefix and col_name then
+            table_alias = prefix
+            column_name = col_name
+        else
+            -- Try to extract just column name without table prefix
+            column_name = col_text:match("([A-Z_][A-Z0-9_]*)")
+        end
+
+        -- If we have AS alias but no column extracted, use AS alias as column name
+        if not column_name and as_alias then
+            column_name = as_alias
+        end
     else
-        -- No table prefix, just column name
-        column_name = col_text:match("^([A-Z_][A-Z0-9_]*)$")
+        -- Simple column (not a function)
+        -- Check for table alias prefix
+        local prefix, col_name = col_text:match("^([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)$")
+        if prefix and col_name then
+            table_alias = prefix
+            column_name = col_name
+        else
+            -- No table prefix, just column name
+            column_name = col_text:match("^([A-Z_][A-Z0-9_]*)$")
+        end
     end
 
     -- Filter out SQL keywords
@@ -259,7 +281,7 @@ function M.parse_single_column(col_text)
         table_alias = table_alias,
         as_alias = as_alias,
         full_reference = full_reference,
-        original_text = col_text .. (as_alias and (" AS " .. as_alias) or "")
+        original_text = original_text
     }
 end
 
@@ -267,7 +289,8 @@ end
 -- Extract WHERE clause columns for SELECT and UPDATE queries
 ---------------------------------------------------------------------
 --- Extract simple equality-comparison columns from a WHERE clause.
---- Matches patterns like "NAME = ?" and returns {"NAME", ...}.
+--- Matches patterns like "NAME = ?" or "TABLE.NAME = ?" and returns {"NAME", ...}.
+--- Returns the column name without the table prefix for matching with parameters.
 ---
 ---@param sql string|nil
 ---@return string[]
@@ -277,6 +300,7 @@ function M.extract_where_columns(sql)
     end
 
     local where_columns = {}
+    local seen = {}  -- Track columns we've already added
 
     -- Extract WHERE clause
     local where_section = sql:match("WHERE%s+(.*)$")
@@ -285,8 +309,26 @@ function M.extract_where_columns(sql)
     end
 
     -- Find column names followed by = ?
+    -- Pattern handles both TABLE.COLUMN and COLUMN
+    -- Match TABLE.COLUMN = ? format first (with two captures)
+    for table_alias, col_name in where_section:gmatch("([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)%s*=%s*%?") do
+        if not seen[col_name] then
+            table.insert(where_columns, col_name)
+            seen[col_name] = true
+        end
+    end
+
+    -- Also match simple columns without table prefix (COLUMN = ?)
+    -- This is for cases where no table alias is used
     for col in where_section:gmatch("([A-Z_][A-Z0-9_]*)%s*=%s*%?") do
-        table.insert(where_columns, col)
+        if not seen[col] then
+            -- Check if this column doesn't have a dot before it (not part of TABLE.COLUMN)
+            local pattern = "([A-Z_][A-Z0-9_]*)%." .. col .. "%s*=%s*%?"
+            if not where_section:match(pattern) then
+                table.insert(where_columns, col)
+                seen[col] = true
+            end
+        end
     end
 
     return where_columns

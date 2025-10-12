@@ -11,6 +11,7 @@
 
 local floating_buffer = require('utils.floating_buffer')
 local clipboard = require('utils.clipboard')
+local oracle_metadata = require('utils.oracle_metadata')
 local mapper = require('cmd.jdbcmap.mapper')
 local report_generator = require('cmd.jdbcmap.report_generator')
 
@@ -38,7 +39,57 @@ function M.map_columns_and_params()
     -- Get SQL text for clipboard functionality
     local sql_text = report_generator.get_sql_text(mapping_data)
 
-    -- Define custom keymaps for the report - Open for extension!
+    -- Build row actions mapping (line number -> action function)
+    local row_actions = {}
+
+    -- Calculate line offsets for each section to map row numbers
+    if mapping_data.sql_type == "SELECT" and mapping_data.columns and #mapping_data.columns > 0 then
+        local columns = mapping_data.columns
+        local table_info = mapping_data.table_info or {}
+
+        -- Find the "Selected Columns" section line offset
+        -- Structure: title (3 lines) + blank + sections...
+        local line_offset = 4  -- Start after main title
+
+        -- Skip sections until we reach "Selected Columns"
+        for _, section in ipairs(sections) do
+            if section.title and section.title:match("Selected Columns") then
+                -- Found it! Now map each data row
+                -- Section structure: title line + header line + separator line + data rows
+                line_offset = line_offset + 3  -- Skip title, header, separator
+
+                for i, col in ipairs(columns) do
+                    local row_line = line_offset + i
+                    row_actions[row_line] = function()
+                        local query, err = oracle_metadata.generate_query_for_column(col, table_info)
+                        if query then
+                            clipboard.copy_with_message(query,
+                                string.format("✅ Copied metadata query for %s", col.name or "column"))
+                        else
+                            vim.notify(
+                                string.format("⚠️ %s", err or "Cannot generate metadata query"),
+                                vim.log.levels.WARN
+                            )
+                        end
+                    end
+                end
+                break
+            else
+                -- Count lines in this section
+                line_offset = line_offset + 1  -- title line
+                if section.content then
+                    if type(section.content) == "table" then
+                        line_offset = line_offset + #section.content
+                    else
+                        line_offset = line_offset + 1
+                    end
+                end
+                line_offset = line_offset + 2  -- footer line + blank line
+            end
+        end
+    end
+
+    -- Define custom keymaps for the report
     local custom_keymaps = {}
 
     -- Add copy SQL keybinding if SQL is available
@@ -53,13 +104,30 @@ function M.map_columns_and_params()
         })
     end
 
+    -- Add <Space>c keybinding for row-based copy action
+    table.insert(custom_keymaps, {
+        key = "<Space>c",
+        action = function()
+            -- Get current cursor line (1-indexed)
+            local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+
+            -- Check if this line has an action
+            if row_actions[cursor_line] then
+                row_actions[cursor_line]()
+            else
+                vim.notify("⚠️ No action available for this row", vim.log.levels.INFO)
+            end
+        end,
+        description = "<Space>c: copy column metadata",
+        mode = "n"
+    })
+
     -- Show the floating buffer with extended functionality
     floating_buffer.show_report(title, sections, {
         custom_keymaps = custom_keymaps,
+        row_actions = row_actions,
     })
-end
-
--- Neovim user command
+end-- Neovim user command
 vim.api.nvim_create_user_command("JDBCMapParams", function()
     M.map_columns_and_params()
 end, {})

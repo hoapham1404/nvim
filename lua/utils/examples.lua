@@ -213,4 +213,120 @@ function M.run_all()
     vim.defer_fn(function() M.floating_report() end, 6000)
 end
 
+--- Example 9: Oracle metadata queries
+function M.oracle_metadata_basic()
+    local oracle_metadata = require('utils.oracle_metadata')
+
+    -- Generate metadata query for a column
+    local query = oracle_metadata.generate_column_metadata_query("MSTJYO", "USER_ID")
+    print("Generated query:")
+    print(query)
+
+    -- Check if columns are simple
+    print("\nColumn validation:")
+    print("USER_ID is simple:", oracle_metadata.is_simple_column("USER_ID"))  -- true
+    print("COUNT(*) is simple:", oracle_metadata.is_simple_column("COUNT(*)"))  -- false
+    print("UPPER(name) is simple:", oracle_metadata.is_simple_column("UPPER(name)"))  -- false
+end
+
+--- Example 10: Oracle metadata with context
+function M.oracle_metadata_with_context()
+    local oracle_metadata = require('utils.oracle_metadata')
+    local clipboard = require('utils.clipboard')
+
+    -- Simulate column and table info from JDBC mapper
+    local col = {
+        name = "USER_ID",
+        table_alias = "u",
+        as_alias = "userId"
+    }
+
+    local table_info = {
+        u = {
+            table_name = "MSTJYO",
+            type = "main"
+        }
+    }
+
+    -- Generate and copy metadata query
+    local query, err = oracle_metadata.generate_query_for_column(col, table_info)
+
+    if query then
+        print("✅ Generated metadata query for column: " .. col.name)
+        print(query)
+        clipboard.copy_with_message(query, "✅ Oracle metadata query copied!")
+    else
+        print("❌ Error: " .. (err or "Unknown error"))
+    end
+end
+
+--- Example 11: JDBC Mapper simulation with column metadata
+function M.jdbc_mapper_simulation()
+    local floating_buffer = require('utils.floating_buffer')
+    local clipboard = require('utils.clipboard')
+    local oracle_metadata = require('utils.oracle_metadata')
+
+    -- Simulate JDBC mapper data
+    local columns = {
+        { name = "USER_ID", table_alias = "u" },
+        { name = "USER_NAME", table_alias = "u" },
+        { name = "EMAIL", table_alias = "u" },
+        { name = "COUNT(*)" },  -- This is complex, won't work
+    }
+
+    local table_info = {
+        u = { table_name = "USERS", type = "main" }
+    }
+
+    local sections = {
+        {
+            title = "📋 Selected Columns",
+            content = {
+                "1. USER_ID (u.USER_ID)",
+                "2. USER_NAME (u.USER_NAME)",
+                "3. EMAIL (u.EMAIL)",
+                "4. COUNT(*) - aggregate function"
+            }
+        },
+        {
+            title = "💡 Column Metadata Actions",
+            content = {
+                "Press '1y' to copy metadata query for column #1 (USER_ID)",
+                "Press '2y' to copy metadata query for column #2 (USER_NAME)",
+                "Press '3y' to copy metadata query for column #3 (EMAIL)",
+                "Note: Column #4 is a function, metadata not available"
+            }
+        }
+    }
+
+    -- Create custom keymaps for each column
+    local custom_keymaps = {}
+
+    for i = 1, math.min(#columns, 9) do
+        local col = columns[i]
+
+        table.insert(custom_keymaps, {
+            key = tostring(i) .. "y",
+            action = function()
+                local query, err = oracle_metadata.generate_query_for_column(col, table_info)
+                if query then
+                    clipboard.copy_with_message(query,
+                        string.format("✅ Metadata query for column #%d (%s) copied!", i, col.name))
+                else
+                    vim.notify(
+                        string.format("⚠️ Column #%d (%s): %s", i, col.name, err or "Cannot generate"),
+                        vim.log.levels.WARN
+                    )
+                end
+            end,
+            description = string.format("copy col#%d metadata", i),
+            mode = "n"
+        })
+    end
+
+    floating_buffer.show_report("JDBC Mapper - Column Metadata Demo", sections, {
+        custom_keymaps = custom_keymaps
+    })
+end
+
 return M

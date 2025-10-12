@@ -101,26 +101,67 @@ end
 ---@param from_section string The FROM clause section
 ---@param tables table Table to populate with parsed table information
 function M.parse_join_syntax(from_section, tables)
-    -- Parse main table: [schema.]TABLE_NAME ALIAS
-    local main_table, main_alias = from_section:match(
-        "^%s*[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
-    if main_table and main_alias then
-        tables[main_alias] = {
-            table_name = main_table,
-            alias = main_alias,
-            type = "main"
-        }
-        print(string.format("   Main table: %s (alias: %s)", main_table, main_alias))
+    -- Normalize whitespace and newlines to single spaces
+    from_section = from_section:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+
+    -- Parse main table: extract everything before the first JOIN keyword
+    -- We look for specific JOIN patterns to avoid false matches
+    local join_patterns = {
+        "LEFT%s+OUTER%s+JOIN",
+        "RIGHT%s+OUTER%s+JOIN",
+        "FULL%s+OUTER%s+JOIN",
+        "INNER%s+JOIN",
+        "LEFT%s+JOIN",
+        "RIGHT%s+JOIN",
+        "FULL%s+JOIN",
+        "CROSS%s+JOIN",
+        "JOIN"  -- plain JOIN last
+    }
+
+    local first_join_pos = nil
+    for _, pattern in ipairs(join_patterns) do
+        local pos = from_section:find(pattern)
+        if pos and (not first_join_pos or pos < first_join_pos) then
+            first_join_pos = pos
+        end
     end
 
-    -- Find all JOIN clauses
-    M.parse_join_type(from_section, tables, "INNER JOIN", "inner_join")
+    local main_part
+    if first_join_pos then
+        main_part = from_section:sub(1, first_join_pos - 1):gsub("%s+$", "")
+    else
+        -- No JOIN found, the entire section is the main table
+        main_part = from_section
+    end
+
+    if main_part and main_part ~= "" then
+        -- Extract: [schema.]TABLENAME ALIAS
+        -- Pattern: optional schema prefix (word.), table name, space, alias at end
+        -- Note: Changed [A-Z0-9_]+ to [A-Z0-9_]* to allow single-letter aliases like "U", "E", etc.
+        local main_table, main_alias = main_part:match("([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)%s*$")
+
+        if main_table and main_alias then
+            tables[main_alias] = {
+                table_name = main_table,
+                alias = main_alias,
+                type = "main"
+            }
+            print(string.format("   Main table: %s (alias: %s)", main_table, main_alias))
+        else
+            print(string.format("   ⚠️ Failed to parse main table from: '%s'", main_part))
+        end
+    end
+
+    -- Find all JOIN clauses (order matters! Check multi-word joins first)
     M.parse_join_type(from_section, tables, "LEFT%s+OUTER%s+JOIN", "left_outer_join")
+    M.parse_join_type(from_section, tables, "RIGHT%s+OUTER%s+JOIN", "right_outer_join")
+    M.parse_join_type(from_section, tables, "FULL%s+OUTER%s+JOIN", "full_outer_join")
+    M.parse_join_type(from_section, tables, "INNER%s+JOIN", "inner_join")
     M.parse_join_type(from_section, tables, "LEFT%s+JOIN", "left_join")
     M.parse_join_type(from_section, tables, "RIGHT%s+JOIN", "right_join")
-end
-
----------------------------------------------------------------------
+    M.parse_join_type(from_section, tables, "FULL%s+JOIN", "full_join")
+    M.parse_join_type(from_section, tables, "CROSS%s+JOIN", "cross_join")
+end---------------------------------------------------------------------
 -- Parse specific join type
 ---------------------------------------------------------------------
 --- Parse a specific type of JOIN clause
@@ -129,16 +170,44 @@ end
 ---@param join_pattern string Regex pattern for the join type
 ---@param join_type string Type identifier for the join
 function M.parse_join_type(from_section, tables, join_pattern, join_type)
-    for join_match in from_section:gmatch("(" .. join_pattern .. ".-)%s*ON") do
-        local table_name, alias = join_match:match(
-            "[^%s%.]*%.?([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)")
+    -- Normalize the from_section (collapse whitespace including newlines)
+    local normalized = from_section:gsub("%s+", " ")
+
+    -- Pattern: JOIN_KEYWORD(s) followed by table spec up to ON keyword
+    -- We use a non-greedy match (.-) to get content between JOIN and ON
+    for join_match in normalized:gmatch(join_pattern .. "%s+(.-)%s+ON") do
+        -- join_match now contains: "[schema.]TABLENAME ALIAS"
+        -- Strip any leading/trailing whitespace
+        local table_spec = join_match:gsub("^%s+", ""):gsub("%s+$", "")
+
+        -- Extract table name and alias
+        -- Pattern: [schema.]TABLE_NAME ALIAS
+        -- Try with schema first, then without
+        local table_name, alias
+
+        -- Try pattern with schema prefix: SCHEMA.TABLENAME ALIAS
+        table_name, alias = table_spec:match("^([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
         if table_name and alias then
-            tables[alias] = {
-                table_name = table_name,
-                alias = alias,
-                type = join_type
-            }
-            print(string.format("   %s: %s (alias: %s)", join_type:upper(), table_name, alias))
+            -- We got schema, table, alias - use table and alias
+            table_name, alias = table_spec:match("^[A-Z_][A-Z0-9_]*%.([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
+        else
+            -- No schema, just TABLENAME ALIAS
+            table_name, alias = table_spec:match("^([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
+        end
+
+        if table_name and alias then
+            -- Check if not already added (avoid duplicates from overlapping patterns)
+            if not tables[alias] then
+                tables[alias] = {
+                    table_name = table_name,
+                    alias = alias,
+                    type = join_type
+                }
+                print(string.format("   %s: %s (alias: %s)", join_type:gsub("_", " "):upper(), table_name, alias))
+            end
+        else
+            print(string.format("   ⚠️ Failed to parse %s from spec: '%s'",
+                join_type, table_spec))
         end
     end
 end

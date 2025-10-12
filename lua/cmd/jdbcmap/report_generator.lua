@@ -154,9 +154,9 @@ end
 --- @return table Section with selected columns content
 function M.create_select_columns_section(columns)
     local content = {
-        string.format("%-4s %-25s %-15s %-20s %-25s", "#", "Column Name", "Table Alias", "AS Alias",
-            "Full Reference"),
-        string.rep("─", 95)
+        string.format("%-4s %-25s %-15s %-20s %-25s %-10s", "#", "Column Name", "Table Alias", "AS Alias",
+            "Full Reference", "Action"),
+        string.rep("─", 110)
     }
 
     for i, col in ipairs(columns) do
@@ -172,8 +172,8 @@ function M.create_select_columns_section(columns)
             col_name = tostring(col)
             full_ref = col_name
         end
-        table.insert(content, string.format("%-4d %-25s %-15s %-20s %-25s",
-            i, col_name, table_alias, as_alias, full_ref))
+        table.insert(content, string.format("%-4d %-25s %-15s %-20s %-25s %-10s",
+            i, col_name, table_alias, as_alias, full_ref, "[copy]"))
     end
 
     return {

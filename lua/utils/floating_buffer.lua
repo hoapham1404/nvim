@@ -25,6 +25,7 @@ local M = {}
 ---@field custom_keymaps? KeyMapping[] Additional custom keymaps
 ---@field disable_default_keymaps? boolean Disable default keymaps (default: false)
 ---@field footer_text? string Custom footer text (overrides auto-generated)
+---@field row_actions? table<number, function> Table mapping line numbers to action functions
 
 -- Default configuration
 local default_config = {
@@ -155,10 +156,12 @@ function M.show(content, config)
     -- Extract custom keymaps and other extension points
     local custom_keymaps = popup_config.custom_keymaps
     local disable_defaults = popup_config.disable_default_keymaps
+    local row_actions = popup_config.row_actions
 
     -- Remove our custom fields from popup config
     popup_config.custom_keymaps = nil
     popup_config.disable_default_keymaps = nil
+    popup_config.row_actions = nil
 
     -- Create the popup
     current_popup = Popup(popup_config)
@@ -191,6 +194,11 @@ function M.show(content, config)
 
     -- Apply keymaps (default + custom)
     apply_keymaps(current_popup, custom_keymaps, disable_defaults)
+
+    -- If row actions are provided, store them in buffer variable for access
+    if row_actions then
+        vim.api.nvim_buf_set_var(current_popup.bufnr, 'row_actions', row_actions)
+    end
 
     -- Auto-close on buffer leave (when clicking outside)
     current_popup:on(event.BufLeave, function()
