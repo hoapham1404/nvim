@@ -43,9 +43,10 @@ function M.map_columns_and_params()
     local row_actions = {}
 
     -- Calculate line offsets for each section to map row numbers
+    local table_info = mapping_data.table_info or {}
+    
     if mapping_data.sql_type == "SELECT" and mapping_data.columns and #mapping_data.columns > 0 then
         local columns = mapping_data.columns
-        local table_info = mapping_data.table_info or {}
 
         -- Find the "Selected Columns" section line offset
         -- Structure: title (3 lines) + blank + sections...
@@ -65,6 +66,125 @@ function M.map_columns_and_params()
                         if query then
                             clipboard.copy_with_message(query,
                                 string.format("✅ Copied metadata query for %s", col.name or "column"))
+                        else
+                            vim.notify(
+                                string.format("⚠️ %s", err or "Cannot generate metadata query"),
+                                vim.log.levels.WARN
+                            )
+                        end
+                    end
+                end
+                break
+            else
+                -- Count lines in this section
+                line_offset = line_offset + 1  -- title line
+                if section.content then
+                    if type(section.content) == "table" then
+                        line_offset = line_offset + #section.content
+                    else
+                        line_offset = line_offset + 1
+                    end
+                end
+                line_offset = line_offset + 2  -- footer line + blank line
+            end
+        end
+    elseif mapping_data.sql_type == "UPDATE" then
+        -- Handle UPDATE statement copy actions
+        local line_offset = 4  -- Start after main title
+        
+        for _, section in ipairs(sections) do
+            if section.title and section.title:match("SET Clause") then
+                -- Found SET clause section
+                line_offset = line_offset + 3  -- Skip title, header, separator
+                
+                local columns = mapping_data.columns or {}
+                for i, col in ipairs(columns) do
+                    local row_line = line_offset + i
+                    row_actions[row_line] = function()
+                        local col_info = { name = col, table_alias = "" }
+                        local query, err = oracle_metadata.generate_query_for_column(col_info, table_info)
+                        if query then
+                            clipboard.copy_with_message(query,
+                                string.format("✅ Copied metadata query for SET column %s", col))
+                        else
+                            vim.notify(
+                                string.format("⚠️ %s", err or "Cannot generate metadata query"),
+                                vim.log.levels.WARN
+                            )
+                        end
+                    end
+                end
+                break
+            else
+                -- Count lines in this section
+                line_offset = line_offset + 1  -- title line
+                if section.content then
+                    if type(section.content) == "table" then
+                        line_offset = line_offset + #section.content
+                    else
+                        line_offset = line_offset + 1
+                    end
+                end
+                line_offset = line_offset + 2  -- footer line + blank line
+            end
+        end
+        
+        -- Reset line offset and find WHERE clause section
+        line_offset = 4
+        for _, section in ipairs(sections) do
+            if section.title and section.title:match("WHERE Clause Parameters") then
+                -- Found WHERE clause section
+                line_offset = line_offset + 3  -- Skip title, header, separator
+                
+                local where_columns = mapping_data.where_columns or {}
+                for i, col in ipairs(where_columns) do
+                    local row_line = line_offset + i
+                    row_actions[row_line] = function()
+                        local col_info = { name = col, table_alias = "" }
+                        local query, err = oracle_metadata.generate_query_for_column(col_info, table_info)
+                        if query then
+                            clipboard.copy_with_message(query,
+                                string.format("✅ Copied metadata query for WHERE column %s", col))
+                        else
+                            vim.notify(
+                                string.format("⚠️ %s", err or "Cannot generate metadata query"),
+                                vim.log.levels.WARN
+                            )
+                        end
+                    end
+                end
+                break
+            else
+                -- Count lines in this section
+                line_offset = line_offset + 1  -- title line
+                if section.content then
+                    if type(section.content) == "table" then
+                        line_offset = line_offset + #section.content
+                    else
+                        line_offset = line_offset + 1
+                    end
+                end
+                line_offset = line_offset + 2  -- footer line + blank line
+            end
+        end
+    elseif mapping_data.sql_type == "INSERT" then
+        -- Handle INSERT statement copy actions
+        local line_offset = 4  -- Start after main title
+        
+        for _, section in ipairs(sections) do
+            if section.title and section.title:match("INSERT Values Mapping") then
+                -- Found INSERT values section
+                line_offset = line_offset + 3  -- Skip title, header, separator
+                
+                local columns = mapping_data.columns or {}
+                for i, col in ipairs(columns) do
+                    local row_line = line_offset + i
+                    row_actions[row_line] = function()
+                        local col_info = { name = col, table_alias = "" }
+                        local query, err = oracle_metadata.generate_query_for_column(col_info, table_info)
+                        if query then
+                            clipboard.copy_with_message(query,
+                                string.format("✅ Copied metadata query for INSERT column %s", col))
                         else
                             vim.notify(
                                 string.format("⚠️ %s", err or "Cannot generate metadata query"),
