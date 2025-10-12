@@ -5,7 +5,7 @@
 package.path = package.path .. ";lua/?.lua;lua/?/init.lua"
 
 -- Run the tests
-local test_module = require('cmd.jdbcmap.sql_extractor_test')
+local test_module = require('test.sql_extractor_test')
 local success = test_module.run_all_tests()
 
 -- Exit with appropriate code
