@@ -65,5 +65,8 @@ return {
         vim.notify = require("mini.notify").make_notify({
             INFO = {duration = 3000},
         })
+
+        ---------------------------- Test ---------------------------------------
+        require("mini.test").setup()
     end,
 }
