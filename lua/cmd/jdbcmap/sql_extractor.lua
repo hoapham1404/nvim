@@ -10,7 +10,7 @@
 ---@field replace_database_users fun(sql: string): string
 local M = {}
 
-local append_pattern = "%.append%s*%((.+)%)"
+local APPEND_PATTERN = "%.append%s*%((.+)%)"
 
 -- Database user mapping constants
 local DATABASE_USER_MAPPING = {
@@ -149,7 +149,7 @@ end
 local function reconstruct_same_line_constant_append(line)
     -- Match pattern: .append(CONSTANT).append("string")
     local constant, str_literal = line:match(
-    "%.append%s*%(([A-Z][A-Z0-9_]+)%)%s*%.append%s*%(\"([^\"]+)\"%)")
+        "%.append%s*%(([A-Z][A-Z0-9_]+)%)%s*%.append%s*%(\"([^\"]+)\"%)")
 
     if constant and str_literal and not is_sql_type_or_reserved(constant) and constant ~= "businessDBUser" then
         return constant .. str_literal
@@ -374,7 +374,7 @@ function M.extract_sql_from_method(method)
         end
 
         -- Match .append() calls with content
-        local append_content = line:match(append_pattern)
+        local append_content = line:match(APPEND_PATTERN)
         if append_content then
             -- Check for complex chained append pattern first (multiple .append() calls on same line)
             local complex_chained_result = reconstruct_complex_chained_appends(line)
@@ -396,7 +396,7 @@ function M.extract_sql_from_method(method)
                     else
                         -- Check for consecutive constant + string literal pattern
                         local consecutive_result, lines_consumed =
-                        reconstruct_consecutive_constant_append(method.lines, i)
+                            reconstruct_consecutive_constant_append(method.lines, i)
                         if consecutive_result then
                             table.insert(sql_parts, consecutive_result)
                             i = i + 1 + lines_consumed -- Skip the next line(s) we already processed
@@ -424,7 +424,7 @@ function M.extract_sql_from_method(method)
                                     else
                                         -- Pattern 2: Class-based constants like TableNames.TRNINSTDEVICE
                                         local class_constant = append_content:match(
-                                        "TableNames%.([A-Z][A-Z0-9_]+)")
+                                            "TableNames%.([A-Z][A-Z0-9_]+)")
                                         if class_constant then
                                             table.insert(sql_parts, class_constant)
                                         else

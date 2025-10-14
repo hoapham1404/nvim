@@ -4,7 +4,17 @@ return {
     config = function()
         require('mini.statusline').setup()
         require("mini.diff").setup()
-        require("mini.ai").setup()
+
+        require("mini.ai").setup({
+            n_lines = 500,
+            custom_textobjects = {
+                f = require('mini.ai').gen_spec.treesitter({
+                    a = { '@function.outer', '@method.outer' },
+                    i = { '@function.inner', '@method.inner' },
+                }),
+            },
+        })
+
         require("mini.pairs").setup()
         require("mini.indentscope").setup()
         require("mini.surround").setup({
@@ -63,7 +73,7 @@ return {
             },
         })
         vim.notify = require("mini.notify").make_notify({
-            INFO = {duration = 3000},
+            INFO = { duration = 3000 },
         })
 
         ---------------------------- Test ---------------------------------------

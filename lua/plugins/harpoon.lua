@@ -5,7 +5,8 @@ return {
     config = function()
         local harpoon = require("harpoon")
         local harpoon_extensions = require("harpoon.extensions")
-        local notify = vim.notify -- built-in Neovim notify, or replace with `require("notify")` if using nvim-notify
+        local notify = vim
+        .notify                   -- built-in Neovim notify, or replace with `require("notify")` if using nvim-notify
 
         harpoon:setup()
         harpoon:extend(harpoon_extensions.builtins.highlight_current_file())
@@ -23,11 +24,11 @@ return {
 
         local function select_file(idx)
             harpoon:list():select(idx)
-            notify("Harpoon: jumped to file " .. idx, vim.log.levels.INFO)
+            notify("Harpoon: jump to " .. idx, vim.log.levels.INFO)
         end
 
         local function replace_at(idx)
-            notify("Harpoon: current file at " .. idx, vim.log.levels.INFO)
+            notify("Harpoon: set file at " .. idx, vim.log.levels.INFO)
             harpoon:list():replace_at(idx)
         end
 
@@ -50,10 +51,14 @@ return {
         vim.keymap.set("n", "<leader>k", function() select_file(3) end, { desc = "Harpoon file 3" })
         vim.keymap.set("n", "<leader>l", function() select_file(4) end, { desc = "Harpoon file 4" })
 
-        vim.keymap.set("n", "<leader>H", function() replace_at(1) end, { desc = "Harpoon replace at 1" })
-        vim.keymap.set("n", "<leader>J", function() replace_at(2) end, { desc = "Harpoon replace at 2" })
-        vim.keymap.set("n", "<leader>K", function() replace_at(3) end, { desc = "Harpoon replace at 3" })
-        vim.keymap.set("n", "<leader>L", function() replace_at(4) end, { desc = "Harpoon replace at 4" })
+        vim.keymap.set("n", "<leader>H", function() replace_at(1) end,
+            { desc = "Harpoon replace at 1" })
+        vim.keymap.set("n", "<leader>J", function() replace_at(2) end,
+            { desc = "Harpoon replace at 2" })
+        vim.keymap.set("n", "<leader>K", function() replace_at(3) end,
+            { desc = "Harpoon replace at 3" })
+        vim.keymap.set("n", "<leader>L", function() replace_at(4) end,
+            { desc = "Harpoon replace at 4" })
 
         vim.keymap.set("n", "<C-A-P>", prev_file, { desc = "Harpoon prev file" })
         vim.keymap.set("n", "<C-A-N>", next_file, { desc = "Harpoon next file" })
