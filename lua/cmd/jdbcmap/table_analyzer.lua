@@ -15,7 +15,7 @@ function M.extract_table_info(sql)
     end
 
     local tables = {}
-    
+
     -- Handle UPDATE statements
     local update_match = sql:match("UPDATE%s+([^%s]+)")
     if update_match then
@@ -27,7 +27,7 @@ function M.extract_table_info(sql)
         }
         return tables
     end
-    
+
     -- Handle INSERT statements
     local insert_match = sql:match("INSERT%s+INTO%s+([^%s%(]+)")
     if insert_match then
@@ -44,16 +44,16 @@ function M.extract_table_info(sql)
     -- Need to handle nested WHERE clauses in subqueries
     local from_section = nil
     local from_pos = sql:find("FROM%s+")
-    
+
     if from_pos then
-        local content_start = from_pos + 4  -- Length of "FROM"
+        local content_start = from_pos + 4 -- Length of "FROM"
         local content = sql:sub(content_start)
-        
+
         -- Find WHERE/ORDER/GROUP that's not inside parentheses
         local paren_depth = 0
         local end_pos = nil
         local i = 1
-        
+
         while i <= #content do
             local char = content:sub(i, i)
             if char == "(" then
@@ -62,14 +62,14 @@ function M.extract_table_info(sql)
                 paren_depth = paren_depth - 1
             elseif paren_depth == 0 then
                 -- Check for WHERE/ORDER/GROUP at top level
-                if content:sub(i, i+5) == " WHERE" or content:sub(i, i+6) == " ORDER " or content:sub(i, i+6) == " GROUP " then
+                if content:sub(i, i + 5) == " WHERE" or content:sub(i, i + 6) == " ORDER " or content:sub(i, i + 6) == " GROUP " then
                     end_pos = i
                     break
                 end
             end
             i = i + 1
         end
-        
+
         if end_pos then
             from_section = content:sub(1, end_pos - 1):gsub("^%s*(.-)%s*$", "%1")
         else
@@ -187,7 +187,7 @@ function M.parse_join_syntax(from_section, tables)
         "RIGHT%s+JOIN",
         "FULL%s+JOIN",
         "CROSS%s+JOIN",
-        "JOIN"  -- plain JOIN last
+        "JOIN" -- plain JOIN last
     }
 
     local first_join_pos = nil
@@ -244,7 +244,8 @@ function M.parse_join_syntax(from_section, tables)
     M.parse_join_type(from_section, tables, "RIGHT%s+JOIN", "right_join")
     M.parse_join_type(from_section, tables, "FULL%s+JOIN", "full_join")
     M.parse_join_type(from_section, tables, "CROSS%s+JOIN", "cross_join")
-end---------------------------------------------------------------------
+end ---------------------------------------------------------------------
+
 -- Parse specific join type
 ---------------------------------------------------------------------
 --- Parse a specific type of JOIN clause
@@ -261,36 +262,36 @@ function M.parse_join_type(from_section, tables, join_pattern, join_type)
     -- Use a more sophisticated approach to find the correct ON
     local join_keyword_pattern = join_pattern:gsub("%%s%+", " "):gsub("%%s", " ")
     local start_pos = 1
-    
+
     while start_pos <= #normalized do
         local join_pos = normalized:find(join_keyword_pattern, start_pos)
         if not join_pos then
             break
         end
-        
+
         -- Find the content after the JOIN keyword
         local content_start = join_pos + #join_keyword_pattern
         local content = normalized:sub(content_start):match("^%s*(.-)%s*$")
-        
+
         -- Find the ON keyword that's not inside parentheses
         local on_pos = nil
         local paren_depth = 0
         local i = 1
-        
+
         while i <= #content do
             local char = content:sub(i, i)
             if char == "(" then
                 paren_depth = paren_depth + 1
             elseif char == ")" then
                 paren_depth = paren_depth - 1
-            elseif char == "O" and content:sub(i, i+1) == "ON" and paren_depth == 0 then
+            elseif char == "O" and content:sub(i, i + 1) == "ON" and paren_depth == 0 then
                 -- Found ON keyword at top level
                 on_pos = i
                 break
             end
             i = i + 1
         end
-        
+
         if on_pos then
             local join_match = content:sub(1, on_pos - 1):gsub("^%s*(.-)%s*$", "%1")
             if join_match and join_match ~= "" then
@@ -302,7 +303,8 @@ function M.parse_join_type(from_section, tables, join_pattern, join_type)
                 local subquery_match = table_spec:match("^%((.-)%)%s+([A-Z_][A-Z0-9_]*)$")
                 if subquery_match then
                     -- This is a subquery with alias
-                    local subquery_content, alias = table_spec:match("^%((.-)%)%s+([A-Z_][A-Z0-9_]*)$")
+                    local subquery_content, alias = table_spec:match(
+                        "^%((.-)%)%s+([A-Z_][A-Z0-9_]*)$")
                     if alias then
                         -- Check if not already added (avoid duplicates from overlapping patterns)
                         if not tables[alias] then
@@ -311,7 +313,8 @@ function M.parse_join_type(from_section, tables, join_pattern, join_type)
                                 alias = alias,
                                 type = join_type
                             }
-                            print(string.format("   %s: (subquery) (alias: %s)", join_type:gsub("_", " "):upper(), alias))
+                            print(string.format("   %s: (subquery) (alias: %s)",
+                                join_type:gsub("_", " "):upper(), alias))
                         end
                     end
                 else
@@ -319,13 +322,16 @@ function M.parse_join_type(from_section, tables, join_pattern, join_type)
                     local table_name, alias
 
                     -- Try pattern with schema prefix: SCHEMA.TABLENAME ALIAS
-                    table_name, alias = table_spec:match("^([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
+                    table_name, alias = table_spec:match(
+                        "^([A-Z_][A-Z0-9_]*)%.([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
                     if table_name and alias then
                         -- We got schema, table, alias - use table and alias
-                        table_name, alias = table_spec:match("^[A-Z_][A-Z0-9_]*%.([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
+                        table_name, alias = table_spec:match(
+                            "^[A-Z_][A-Z0-9_]*%.([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
                     else
                         -- No schema, just TABLENAME ALIAS
-                        table_name, alias = table_spec:match("^([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
+                        table_name, alias = table_spec:match(
+                            "^([A-Z_][A-Z0-9_]*)%s+([A-Z_][A-Z0-9_]*)$")
                     end
 
                     if table_name and alias then
@@ -336,7 +342,8 @@ function M.parse_join_type(from_section, tables, join_pattern, join_type)
                                 alias = alias,
                                 type = join_type
                             }
-                            print(string.format("   %s: %s (alias: %s)", join_type:gsub("_", " "):upper(), table_name, alias))
+                            print(string.format("   %s: %s (alias: %s)",
+                                join_type:gsub("_", " "):upper(), table_name, alias))
                         end
                     else
                         print(string.format("   ⚠️ Failed to parse %s from spec: '%s'",
@@ -345,7 +352,7 @@ function M.parse_join_type(from_section, tables, join_pattern, join_type)
                 end
             end
         end
-        
+
         -- Move to next potential JOIN
         start_pos = join_pos + 1
     end
