@@ -77,36 +77,31 @@ autocmd({ BUF_ENTER, INSERT_LEAVE }, {
 })
 
 ---@brief LSP actions for different filetypes
-autocmd(LSP_ATTACH, {
-    desc = "LSP actions",
+autocmd("LspAttach", {
     group = GROUP,
+    desc = "LSP Actions",
     callback = function(event)
-        ---@type integer
         local bufnr = event.buf
-        ---@type table
         local opts = { buffer = bufnr }
-        ---@type string
         local filetype = vim.bo[bufnr].filetype
-        ---@type boolean
-        local format_on_save = true
+        local client = vim.lsp.get_client_by_id(event.data.client_id)
 
-        vim.notify(filetype, vim.log.levels.INFO)
+        -- Debug
+        if vim.g.debug_lsp_attach then
+            vim.notify("LSP attached: " ..
+                (client and client.name or "unknown") .. " (" .. filetype .. ")")
+        end
 
-        -- Common LSP bindings
-        if filetype == "cs" then
-            vim.keymap.set("n", "gd", require("omnisharp_extended").telescope_lsp_definition,
-                { noremap = true })
-            vim.keymap.set(
-                "n",
-                "gr",
-                function()
-                    require("omnisharp_extended").telescope_lsp_references(require(
-                        "telescope.themes").get_ivy({ excludeDefinition = true }))
-                end,
-                { noremap = true }
-            )
+        -- Keymaps
+        if client and client.name == "omnisharp" then
+            vim.keymap.set("n", "gd", require("omnisharp_extended").telescope_lsp_definition, opts)
+            vim.keymap.set("n", "gr", function()
+                require("omnisharp_extended").telescope_lsp_references(require("telescope.themes")
+                    .get_ivy({ excludeDefinition = true }))
+            end, opts)
         else
-            vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+            vim.keymap.set("n", "gd", vim.lsp.buf.definition,
+                vim.tbl_extend("force", opts, { desc = "LSP Definition" }))
             vim.keymap.set("n", "gr", require("telescope.builtin").lsp_references,
                 vim.tbl_extend("force", opts, { desc = "LSP References" }))
         end
@@ -117,27 +112,23 @@ autocmd(LSP_ATTACH, {
         vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
         vim.keymap.set("n", "gs", vim.lsp.buf.signature_help, opts)
         vim.keymap.set({ "n", "v" }, "<A-.>", vim.lsp.buf.code_action,
-            vim.tbl_extend("force", opts, { desc = "Lsp Code Action" }))
-        vim.keymap.set("n", "<leader>fo",
-            function() vim.lsp.buf.format({ async = false, timeout_ms = 5000 }) end)
-        -- Diagnostics
-        vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, opts)
+            vim.tbl_extend("force", opts, { desc = "Code Action" }))
+        vim.keymap.set("n", "<leader>fo", function() vim.lsp.buf.format({ async = true }) end,
+            vim.tbl_extend("force", opts, { desc = "Format Buffer" }))
+        vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float,
+            vim.tbl_extend("force", opts, { desc = "Show Diagnostics" }))
 
-        -- Format on save
-        if format_on_save then
-            autocmd(BUF_WRITE_PRE, {
+        -- Format on save (except for some filetypes)
+        if not vim.tbl_contains({ "markdown", "text", "html" }, filetype) then
+            autocmd("BufWritePre", {
                 buffer = bufnr,
                 callback = function()
-                    local skip_filetypes = { "markdown", "text", "html" }
-                    if not vim.tbl_contains(skip_filetypes, filetype) then
-                        vim.lsp.buf.format({ async = false, timeout_ms = 5000 })
-                    end
+                    vim.lsp.buf.format({ async = true })
                 end,
             })
         end
     end,
 })
-
 
 autocmd({
     "CursorHold",
