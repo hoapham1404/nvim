@@ -27,6 +27,21 @@ local DATABASE_USER_MAPPING = {
 --- Get the lines of the current Java method under the cursor using Treesitter.
 --- Returns a table containing method metadata and its lines, or `nil` if no method is found.
 ---@return SQLMethod|nil method The current method details or `nil` if not inside one
+--- Example:
+--- ```java
+--- method = M.get_current_method_lines()
+--- ```
+--- Returns:
+--- ```java
+--- {
+---     start_line = 1,
+---     end_line = 10,
+---     lines = {
+---         "public void exampleMethod() {",
+---         "    System.out.println("Hello, World!");",
+---         "}",
+--- }
+--- ```
 function M.get_current_method_lines()
     local ts_utils = require('nvim-treesitter.ts_utils')
     local node = ts_utils.get_node_at_cursor()
@@ -51,11 +66,16 @@ function M.get_current_method_lines()
 end
 
 --- Reconstruct table name and alias from chained `.append()` calls.
---- Example patterns:
---- * `businessDBUser).append(".").append(TableNames.TRNINSTDEVICE).append(" INS ,")`
---- * `businessDBUser).append(".").append(MSTDEVICE).append(" DEV ,")`
 ---@param line string The line containing chained append calls
 ---@return string|nil reconstructed The reconstructed table reference or `nil`
+--- Example:
+--- ```java
+--- line = "businessDBUser.append(TableNames.TRNINSTDEVICE).append(" INS ,")
+--- ```
+--- Returns:
+--- ```java
+--- TRNINSTDEVICE INS
+--- ```
 function M.reconstruct_from_chained_appends(line)
     if not (
             line:find("businessDBUser")
@@ -104,15 +124,19 @@ local function is_sql_type_or_reserved(constant)
 end
 
 --- Extract multi-line `.append()` SQL fragments.
---- Handles patterns like:
---- ```java
---- sqlBuf.append(
----     " SELECT * FROM MSTDEVICE ");
---- ```
 ---@param lines string[] All method lines
 ---@param current_index integer Current line index (1-based)
 ---@return string|nil content Extracted SQL fragment
 ---@return integer consumed Number of lines consumed (0 if no match)
+--- Example:
+--- ```java
+--- sqlBuf.append(
+---     " SELECT * FROM MSTDEVICE ");
+--- ```
+--- Returns:
+--- ```java
+--- SELECT * FROM MSTDEVICE
+--- ```
 function M.extract_multiline_append(lines, current_index)
     local current_line = lines[current_index]
     if not current_line then
@@ -165,11 +189,22 @@ end
 --- Combines multiple patterns (multiline, chained, and constant-based) into one SQL string.
 ---@param method SQLMethod The method object with a `lines` field
 ---@return string|nil sql The extracted SQL statement or `nil`
+--- Example:
+--- ```java
+--- sqlBuf.append("SELECT * FROM businessDBUser.MSTDEVICE");
+--- sqlBuf.append("WHERE businessDBUser.ID = 1");
+--- ```
+--- Returns:
+--- ```java
+--- SELECT * FROM businessDBUser.MSTDEVICE WHERE businessDBUser.ID = 1
+--- ```
 function M.extract_sql_from_method(method)
+    -- Validate
     if not method then
         return nil
     end
 
+    -- Extract only the SQL statements from the method lines
     local sql_parts = {}
     local i = 1
 
@@ -205,6 +240,15 @@ end
 --- Count the number of `?` placeholders in a SQL string.
 ---@param sql string SQL query to analyze
 ---@return integer count Number of placeholders found
+--- Example:
+--- ```java
+--- sql = "SELECT * FROM businessDBUser.MSTDEVICE WHERE businessDBUser.ID = ?"
+--- count = 1
+--- ```
+--- Returns:
+--- ```java
+--- 1
+--- ```
 function M.count_placeholders(sql)
     if not sql or sql == "" then
         return 0
@@ -230,6 +274,11 @@ end
 --- Replace database user variable references (like `businessDBUser`) with actual schema names.
 ---@param sql string SQL text
 ---@return string replaced SQL with user variables replaced
+--- Example:
+--- ```java
+--- sql = "SELECT * FROM businessDBUser.MSTDEVICE WHERE businessDBUser.ID = 1"
+--- replaced = "SELECT * FROM KTV.MSTDEVICE WHERE KTV.ID = 1"
+--- ```
 function M.replace_database_users(sql)
     if not sql or sql == "" then
         return sql
